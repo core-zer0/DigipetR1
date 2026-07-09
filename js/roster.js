@@ -3,7 +3,7 @@
 // Configuración global de la cuadrícula
 const SHEET_CONFIG = {
     // Reemplaza esto con tu URL de GitHub cuando la subas
-    url: "https://raw.githubusercontent.com/TU_USUARIO/SchedulerR1/main/assets/NOMBRE_IMAGEN.png",
+    url: "https://raw.githubusercontent.com/core-zer0/DigipetR1/refs/heads/main/sprites/Spritesheet1.png",
     startX: 120, // Píxeles de margen izquierdo (donde acaban los nombres y empiezan los sprites) - A AJUSTAR
     startY: 40,  // Píxeles de margen superior (donde acaban los textos de cabecera) - A AJUSTAR
     w: 32,       // Ancho estándar de un frame de Pendulum Color - A AJUSTAR
