@@ -47,7 +47,7 @@ function getAnimatedSprite(id, state = 'idle') {
     let flipX = spriteDireccion === 1 ? -1 : 1;
     
     // CORRECCIÓN: Definimos el factor de escala aquí para no perderlo
-    let scaleFactor = 8; 
+    let scaleFactor = 5; 
     let transformValue = `scale(${scaleFactor}) scaleX(${flipX})`;
 
     // Solo aplicamos el movimiento de coordenadas si estamos deambulando en la pantalla MAIN
