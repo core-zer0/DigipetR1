@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>R1 Digivice - Color Edition</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', Courier, monospace;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #0d0d0d;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 10px;
+        }
+
+        .digivice-frame {
+            background: radial-gradient(circle, #2196f3 60%, #1565c0 100%);
+            border: 8px solid #111;
+            border-radius: 40px;
+            width: 100%;
+            max-width: 380px;
+            height: 100%;
+            min-height: 420px;
+            padding: 25px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.7), 0 10px 25px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .digivice-frame::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: 40px;
+            width: 30px;
+            height: 20px;
+            background: #222;
+            border-radius: 5px 5px 0 0;
+        }
+
+        .lcd-screen {
+            background-color: #eef2e6;
+            border: 6px solid #222;
+            border-radius: 10px;
+            width: 100%;
+            height: 240px;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.3);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            color: #111111;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            font-size: 1.1rem;
+            letter-spacing: 4px;
+            border-bottom: 1px dashed #888;
+            padding-bottom: 4px;
+            height: 25px;
+        }
+
+        .view-port {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .sprite-render {
+            height: 72px;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            margin: 5px 0;
+        }
+
+        .action-menu {
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px dashed #888;
+            padding-top: 6px;
+            height: 35px;
+        }
+
+        .menu-icon {
+            font-size: 1.1rem;
+            opacity: 0.25;
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
+        .menu-icon.active {
+            opacity: 1;
+            background-color: rgba(0,0,0,0.08);
+            border: 1px solid #444;
+        }
+
+        .menu-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #222;
+            margin-bottom: 2px;
+        }
+        
+        .menu-list {
+            font-size: 0.8rem;
+            line-height: 1.2;
+        }
+        
+        /* Animación para engranaje del menú de proceso */
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div class="digivice-frame">
+        <div class="lcd-screen">
+            <div class="status-bar" id="status-bar">🥚 🔋 ✨</div>
+            <div class="view-port" id="view-port"></div>
+            <div class="action-menu" id="action-menu">
+                <span class="menu-icon" id="icon-0">🍖</span>
+                <span class="menu-icon" id="icon-1">⚔️</span>
+                <span class="menu-icon" id="icon-2">🛒</span>
+                <span class="menu-icon" id="icon-3">💤</span>
+                <span class="menu-icon" id="icon-4">🧹</span>
+                <span class="menu-icon" id="icon-5">💊</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. Carga de la Base de Datos y función del Sprite -->
+    <script src="js/roster.js"></script>
+
+    <!-- 2. Lógica interna de renderizado y estado (Se mantiene en el index) -->
+    <script>
+        let db = JSON.parse(localStorage.getItem('r1_digipet_save')) || {
+            phase: 'HATCHING', 
+            stage: 'huevo', 
+            hunger: 0,       
+            energy: 4,       
+            poop: 0,
+            isSick: false,
+            coins: 10,
+            level: 1,
+            careMistakes: 0,
+            trainings: 0,
+            lastStageCheck: '' 
+        };
+
+        let currentIconIndex = 0; 
+        let subMenuIndex = 0;     
+
+        function guardarJuego() {
+            localStorage.setItem('r1_digipet_save', JSON.stringify(db));
+        }
+
+        function renderUI() {
+            const view = document.getElementById('view-port');
+            const statusBar = document.getElementById('status-bar');
+            let currentData = ROSTER[db.stage] || ROSTER['huevo'];
+            
+            let emoteHambre = db.hunger >= 3 ? '💢' : '🍖';
+            let emoteEnergia = db.energy <= 1 ? '🪫' : '🔋';
+            let emoteSalud = db.isSick ? '🤢' : (db.poop > 0 ? '💩' : '✨');
+            statusBar.innerText = `${currentData.nombre.toUpperCase()} ${emoteHambre} ${emoteEnergia} ${emoteSalud}`;
+
+            let uiCheckKey = `${db.phase}_${db.stage}_${subMenuIndex}_${db.poop}`;
+            if (db.lastStageCheck === uiCheckKey) {
+                actualizarFilaIconos();
+                return;
+            }
+            db.lastStageCheck = uiCheckKey;
+
+            view.innerHTML = '';
+
+            if (db.phase === 'HATCHING') {
+                view.innerHTML = `
+                    <div class="menu-title">ELIGE TU HUEVO</div>
+                    ${getAnimatedSprite('huevo')}
+                    <div class="menu-list" style="font-size:11px; margin-top:4px;">[Pulsa PTT para nacer]</div>
+                `;
+            }
+            else if (db.stage === 'muerto') {
+                view.innerHTML = `
+                    <div class="menu-title">CONEXIÓN PERDIDA</div>
+                    ${getAnimatedSprite('muerto')}
+                    <div class="menu-list" style="font-size:11px; margin-top:4px;">[PTT para Reiniciar]</div>
+                `;
+            }
+            else if (db.phase === 'MAIN') {
+                let poopDisplay = '💩'.repeat(db.poop);
+                view.innerHTML = `
+                    <div class="menu-title">LV.${db.level} ${currentData.nombre}</div>
+                    ${getAnimatedSprite(db.stage)}
+                    <div style="font-size:11px; height:14px; margin-top:2px;">${poopDisplay}</div>
+                `;
+            } 
+            else if (db.phase === 'EXPEDITION') {
+                view.innerHTML = `
+                    <div class="menu-title">⚔️ EXPEDICIÓN ⚔️</div>
+                    <div class="menu-list" style="text-align:left; width:85%; margin-top:10px;">
+                        ${subMenuIndex === 0 ? '👉 BUSCAR COMBATE' : '   BUSCAR COMBATE'}<br>
+                        ${subMenuIndex === 1 ? '👉 ENTRENAR' : '   ENTRENAR'}<br>
+                        ${subMenuIndex === 2 ? '👉 VOLVER' : '   VOLVER'}
+                    </div>
+                `;
+            }
+            else if (db.phase === 'SHOP') {
+                view.innerHTML = `
+                    <div class="menu-title">🛒 TIENDA (${db.coins}C)</div>
+                    <div class="menu-list" style="text-align:left; width:85%; margin-top:10px;">
+                        ${subMenuIndex === 0 ? '👉 SUPER MEAT (4C)' : '   SUPER MEAT (4C)'}<br>
+                        ${subMenuIndex === 1 ? '👉 MEDICINA (8C)' : '   MEDICINA (8C)'}<br>
+                        ${subMenuIndex === 2 ? '👉 VOLVER' : '   VOLVER'}
+                    </div>
+                `;
+            }
+            else if (db.phase === 'MENU_EXEC') {
+                view.innerHTML = `
+                    <div class="menu-title">PROCESANDO...</div>
+                    <div style="font-size:2.5rem; margin: 15px 0; animation: spin 1.5s infinite linear;">⚙️</div>
+                `;
+            }
+
+            actualizarFilaIconos();
+        }
+
+        function actualizarFilaIconos() {
+            for (let i = 0; i < 6; i++) {
+                const icon = document.getElementById(`icon-${i}`);
+                if (db.phase === 'MAIN' && i === currentIconIndex) {
+                    icon.classList.add('active');
+                } else {
+                    icon.classList.remove('active');
+                }
+            }
+        }
+
+        setInterval(() => {
+            if (db.phase === 'HATCHING' || db.stage === 'muerto') return;
+
+            db.hunger = Math.min(4, db.hunger + 1);
+            if (db.hunger === 4) db.careMistakes++;
+            if (db.poop >= 3) db.isSick = true;
+
+            comprobarEvolucion();
+            guardarJuego();
+            renderUI();
+        }, 120000);
+
+        function comprobarEvolucion() {
+            if (db.stage === 'botamon') {
+                db.stage = 'koromon';
+            }
+            else if (db.stage === 'koromon') {
+                db.stage = db.careMistakes <= 2 ? 'agumon' : 'betamon';
+                db.careMistakes = 0;
+            }
+            else if (db.stage === 'agumon') {
+                if (db.trainings >= 5 && db.careMistakes <= 1) db.stage = 'greymon';
+                else if (db.trainings >= 3 && db.careMistakes <= 3) db.stage = 'tyranomon';
+                else if (db.careMistakes > 4) db.stage = 'numemon';
+                else db.stage = 'meramon';
+            }
+            else if (db.stage === 'betamon') {
+                if (db.trainings >= 4 && db.careMistakes <= 2) db.stage = 'seadramon';
+                else if (db.careMistakes > 3) db.stage = 'numemon';
+                else db.stage = 'devimon';
+            }
+            else if (db.stage === 'numemon') {
+                if (db.trainings >= 8) db.stage = 'monzaemon';
+            }
+            else if (['greymon', 'tyranomon', 'devimon', 'meramon', 'seadramon'].includes(db.stage)) {
+                if (db.trainings >= 12 && db.level >= 5) {
+                    db.stage = Math.random() > 0.5 ? 'metalgreymon' : 'mamemon';
+                }
+            }
+        }
+
+        setInterval(() => {
+            renderUI();
+        }, 1000);
+
+        renderUI();
+    </script>
+
+    <!-- 3. Carga de listeners físicos y acciones (Tu archivo app.js actual) -->
+    <script src="js/hardware.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
