@@ -286,6 +286,7 @@ function mostrarAccionBreve() {
     renderUI();
     setTimeout(() => { 
         db.phase = 'MAIN'; 
+        db.lastStageCheck = '';
         guardarJuego(); // Guardamos una vez ha regresado de forma segura a MAIN
         renderUI(); 
     }, 1000);
@@ -299,6 +300,7 @@ function ejecutarEntrenamiento() {
         db.energy = Math.max(0, db.energy - 1);
         db.coins += 2;
         db.phase = 'MAIN';
+        db.lastStageCheck = '';
         guardarJuego();
         renderUI();
     }, 1200);
@@ -312,6 +314,7 @@ function ejecutarCombate() {
         if (Math.random() > 0.4) { db.coins += 6; db.level++; } 
         else { db.energy = Math.max(0, db.energy - 2); db.careMistakes++; }
         db.phase = 'MAIN';
+        db.lastStageCheck = '';
         guardarJuego();
         renderUI();
     }, 1500);
