@@ -290,13 +290,12 @@ window.ejecutarAccionFisica = function() {
             case 3: 
                 db.phase = 'SLEEP'; 
                 guardarJuego();
-                renderUI();
                 break;
                 
             case 4: db.poop = 0; mostrarAccionBreve(); break;
             case 5: db.isSick = false; mostrarAccionBreve(); break;
         }
-        // Se quita el guardarJuego() global de aquí para que no interfiera con fases intermedias
+        renderUI();
     }
 };
 
@@ -398,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
             spriteDireccion *= -1; // Da la vuelta en estático
         } else if (rand > 0.3) {
             // Da un "salto" retro de 12% del tamaño de la pantalla en su dirección actual
-            spritePosX += (spriteDireccion * 12);
+            spritePosX += (spriteDireccion * 5);
             
             // Límites de la pantalla LCD (un colchón entre 15% y 85% para que no se salga de los bordes)
             if (spritePosX < 15) {
@@ -411,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         renderUI(); // Forzamos actualización visual del deambuleo
-    }, 2500);
+    }, 600);
 
     // Bucle vital (Cada 2 minutos)
     setInterval(() => {
