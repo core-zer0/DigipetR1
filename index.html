@@ -110,15 +110,6 @@
             background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px);
         }
 
-        .sprite-container-wrapper {
-            position: relative; 
-            width: 100%; 
-            height: 140px;
-            display: flex; 
-            justify-content: center; 
-            align-items: center;
-        }
-
         @keyframes play-anim {
             from { background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px); }
             to { background-position: calc((var(--start-x) + (var(--frames) * (var(--w) + 1))) * -1px) calc(var(--start-y) * -1px); }

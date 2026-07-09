@@ -56,7 +56,7 @@ function getAnimatedSprite(id, state = 'idle') {
         ? `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) ${transformValue}; top: 55%;`
         : `transform: ${transformValue};`;
 
-    return `<div class="sprite-container-wrapper" style="position: relative; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center;">
+    return `<div style="display: flex; justify-content: center; align-items: center; height: 140px; width: 100%; position: relative;">
             <div class="sprite-grid-render" style="
                 --sheet-url: url('${SHEET_CONFIG.url}'); 
                 --offset-x: ${SHEET_CONFIG.startX};
@@ -68,6 +68,7 @@ function getAnimatedSprite(id, state = 'idle') {
                 --row: ${digi.row};
                 --col: ${animConfig.col};
                 --frames: ${animConfig.frames};
+                --transform: ${transformValue};
                 ${posicionEstilo}
                 ${inlineStyle}
             "></div>
