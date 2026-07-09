@@ -94,12 +94,13 @@
             display: inline-block;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
-            transform: scale(50); /* Aumentado para que los 16px luzcan mejor */
+            transform: scale(3.5); /* Aumentado para que los 16px luzcan mejor */
             margin: 20px 0;
             
             width: calc(var(--w) * 1px);
             height: calc(var(--h) * 1px);
             background-image: var(--sheet-url);
+            background-size: var(--sheet-w) var(--sheet-h);
             background-repeat: no-repeat;
 
             /* Cálculo estricto de coordenadas esquivando el píxel de rejilla */
