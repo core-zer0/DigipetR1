@@ -1,10 +1,14 @@
 // js/app.js
 
-// --- 1. ESTADO DEL JUEGO (Migrado desde index.html) ---
+// --- 1. ESTADO DEL JUEGO ---
 let db = JSON.parse(localStorage.getItem('r1_digipet_save')) || {
     phase: 'HATCHING', stage: 'yukimibotamon', hunger: 0, energy: 4, poop: 0,
     isSick: false, coins: 10, level: 1, careMistakes: 0, trainings: 0, lastStageCheck: ''
 };
+
+// ¡PARCHE!: Forzamos el vaciado del tracker de UI en cada inicio 
+// para obligar al DOM a dibujar la pantalla la primera vez que carga.
+db.lastStageCheck = '';
 
 // Salvavidas: Si vienes de una partida vieja y el Digimon ya no existe en el roster actual, resetea.
 if (typeof ROSTER !== 'undefined' && !ROSTER[db.stage]) {
@@ -45,7 +49,7 @@ function getAnimatedSprite(id, state = 'idle') {
 function renderUI() {
     const view = document.getElementById('view-port');
     const statusBar = document.getElementById('status-bar');
-    if (!view || !statusBar) return; // Evita crasheos si el DOM aún no existe
+    if (!view || !statusBar) return; 
 
     let currentData = ROSTER[db.stage] || ROSTER['yukimibotamon'];
     
