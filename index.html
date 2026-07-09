@@ -102,20 +102,20 @@
             background-image: var(--sheet-url);
             background-repeat: no-repeat;
 
-        /* Matemáticas de la cuadrícula: sumamos +1 a cada salto de columna/fila */
+            /* Matemáticas de la cuadrícula: sumamos +1 a cada salto de columna/fila */
             --start-x: calc(var(--offset-x) + (var(--col) * (var(--w) + 1)));
             --start-y: calc(var(--offset-y) + (var(--row) * (var(--h) + 1)));
         }
 
         @keyframes play-anim {
-                    from { 
-                        background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px); 
-                    }
-                    /* Multiplicamos los frames por (ancho + 1) para que el salto de animación sea limpio */
-                    to { 
-                        background-position: calc((var(--start-x) + (var(--frames) * (var(--w) + 1))) * -1px) calc(var(--start-y) * -1px); 
-                    }
-                }
+            from { 
+                background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px); 
+            }
+            /* Multiplicamos los frames por (ancho + 1) para que el salto de animación sea limpio */
+            to { 
+                background-position: calc((var(--start-x) + (var(--frames) * (var(--w) + 1))) * -1px) calc(var(--start-y) * -1px); 
+            }
+        }
                 
         /* ----------------------------------------- */
 
@@ -178,7 +178,7 @@
     <script>
         let db = JSON.parse(localStorage.getItem('r1_digipet_save')) || {
             phase: 'HATCHING', 
-            stage: 'yukimibotamon', /* Actualizado al nuevo roster */
+            stage: 'yukimibotamon', 
             hunger: 0,       
             energy: 4,       
             poop: 0,
@@ -206,6 +206,7 @@
             let emoteEnergia = db.energy <= 1 ? '🪫' : '🔋';
             let emoteSalud = db.isSick ? '🤢' : (db.poop > 0 ? '💩' : '✨');
             statusBar.innerText = `${currentData.nombre.toUpperCase()} ${emoteHambre} ${emoteEnergia} ${emoteSalud}`;
+            
             let uiCheckKey = `${db.phase}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}`;
             if (db.lastStageCheck === uiCheckKey) {
                 actualizarFilaIconos();
@@ -215,7 +216,6 @@
 
             view.innerHTML = '';
 
-            // Sistema de estados para inyectar a la animación
             let animState = 'idle';
             if (db.isSick) {
                 animState = 'hurt';
@@ -235,7 +235,7 @@
             else if (db.stage === 'muerto') {
                 view.innerHTML = `
                     <div class="menu-title">CONEXIÓN PERDIDA</div>
-                    ${getAnimatedSprite('yukimibotamon', 'hurt')} <!-- Fallback para muerto -->
+                    ${getAnimatedSprite('yukimibotamon', 'hurt')}
                     <div class="menu-list" style="font-size:11px; margin-top:4px;">[PTT para Reiniciar]</div>
                 `;
             }
@@ -297,11 +297,10 @@
 
             comprobarEvolucion();
             guardarJuego();
-            renderUI();
+            if (typeof renderUI === 'function') renderUI();
         }, 120000);
 
         function comprobarEvolucion() {
-            /* Árbol evolutivo adaptado al Pendulum Color Zero */
             if (db.stage === 'yukimibotamon') {
                 db.stage = 'nyaromon';
             }
@@ -318,14 +317,11 @@
                 if (db.trainings >= 4 && db.careMistakes <= 2) db.stage = 'garurumon';
                 else db.stage = 'tailmon';
             }
-            // Agrega más ramas si lo deseas, adaptado a tus filas de ROSTER
         }
 
         setInterval(() => {
-            renderUI();
+            if (typeof renderUI === 'function') renderUI();
         }, 1000);
-
-        renderUI();
     </script>
 
     <script src="js/hardware.js"></script>
