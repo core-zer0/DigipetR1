@@ -88,36 +88,32 @@
             font-weight: bold;
         }
 
-        /* ---  SISTEMA DE RENDERIZADO GRID --- */
+        /* --- SISTEMA DE RENDERIZADO GRID CORREGIDO --- */
         .sprite-grid-render {
             display: inline-block;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
-            transform: scale(2.5);
+            transform: scale(3.5); /* Aumentado para que los 16px luzcan mejor */
             margin: 20px 0;
             
-            /* Variables inyectadas por JS desde roster.js */
             width: calc(var(--w) * 1px);
             height: calc(var(--h) * 1px);
             background-image: var(--sheet-url);
             background-repeat: no-repeat;
 
-            /* Matemáticas de la cuadrícula: sumamos +1 a cada salto de columna/fila */
+            /* Cálculo estricto de coordenadas esquivando el píxel de rejilla */
             --start-x: calc(var(--offset-x) + (var(--col) * (var(--w) + 1)));
             --start-y: calc(var(--offset-y) + (var(--row) * (var(--h) + 1)));
+            
+            /* Posición estática por defecto (Vital para frames únicos como Hurt o Sad) */
+            background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px);
         }
 
         @keyframes play-anim {
-            from { 
-                background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px); 
-            }
-            /* Multiplicamos los frames por (ancho + 1) para que el salto de animación sea limpio */
-            to { 
-                background-position: calc((var(--start-x) + (var(--frames) * (var(--w) + 1))) * -1px) calc(var(--start-y) * -1px); 
-            }
+            from { background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px); }
+            to { background-position: calc((var(--start-x) + (var(--frames) * (var(--w) + 1))) * -1px) calc(var(--start-y) * -1px); }
         }
-                
-        /* ----------------------------------------- */
+        /* ------------------------------------------- */
 
         .action-menu {
             display: flex;
@@ -132,6 +128,7 @@
             opacity: 0.25;
             padding: 2px 5px;
             border-radius: 4px;
+            transition: opacity 0.2s;
         }
 
         .menu-icon.active {
@@ -157,7 +154,6 @@
     </style>
 </head>
 <body>
-
     <div class="digivice-frame">
         <div class="lcd-screen">
             <div class="status-bar" id="status-bar">🥚 🔋 ✨</div>
@@ -174,157 +170,7 @@
     </div>
 
     <script src="js/roster.js"></script>
-
-    <script>
-        let db = JSON.parse(localStorage.getItem('r1_digipet_save')) || {
-            phase: 'HATCHING', 
-            stage: 'yukimibotamon', 
-            hunger: 0,       
-            energy: 4,       
-            poop: 0,
-            isSick: false,
-            coins: 10,
-            level: 1,
-            careMistakes: 0,
-            trainings: 0,
-            lastStageCheck: '' 
-        };
-
-        let currentIconIndex = 0; 
-        let subMenuIndex = 0;     
-
-        function guardarJuego() {
-            localStorage.setItem('r1_digipet_save', JSON.stringify(db));
-        }
-
-        function renderUI() {
-            const view = document.getElementById('view-port');
-            const statusBar = document.getElementById('status-bar');
-            let currentData = ROSTER[db.stage] || ROSTER['yukimibotamon'];
-            
-            let emoteHambre = db.hunger >= 3 ? '💢' : '🍖';
-            let emoteEnergia = db.energy <= 1 ? '🪫' : '🔋';
-            let emoteSalud = db.isSick ? '🤢' : (db.poop > 0 ? '💩' : '✨');
-            statusBar.innerText = `${currentData.nombre.toUpperCase()} ${emoteHambre} ${emoteEnergia} ${emoteSalud}`;
-            
-            let uiCheckKey = `${db.phase}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}`;
-            if (db.lastStageCheck === uiCheckKey) {
-                actualizarFilaIconos();
-                return;
-            }
-            db.lastStageCheck = uiCheckKey;
-
-            view.innerHTML = '';
-
-            let animState = 'idle';
-            if (db.isSick) {
-                animState = 'hurt';
-            } else if (db.hunger >= 3) {
-                animState = 'sad';
-            } else if (db.poop > 0) {
-                animState = 'refuse';
-            }
-
-            if (db.phase === 'HATCHING') {
-                view.innerHTML = `
-                    <div class="menu-title">ELIGE TU HUEVO</div>
-                    ${getAnimatedSprite('yukimibotamon', 'idle')}
-                    <div class="menu-list" style="font-size:11px; margin-top:4px;">[Pulsa PTT para nacer]</div>
-                `;
-            }
-            else if (db.stage === 'muerto') {
-                view.innerHTML = `
-                    <div class="menu-title">CONEXIÓN PERDIDA</div>
-                    ${getAnimatedSprite('yukimibotamon', 'hurt')}
-                    <div class="menu-list" style="font-size:11px; margin-top:4px;">[PTT para Reiniciar]</div>
-                `;
-            }
-            else if (db.phase === 'MAIN') {
-                let poopDisplay = '💩'.repeat(db.poop);
-                view.innerHTML = `
-                    <div class="menu-title">LV.${db.level} ${currentData.nombre}</div>
-                    ${getAnimatedSprite(db.stage, animState)}
-                    <div style="font-size:11px; height:14px; margin-top:2px;">${poopDisplay}</div>
-                `;
-            } 
-            else if (db.phase === 'EXPEDITION') {
-                view.innerHTML = `
-                    <div class="menu-title">⚔️ EXPEDICIÓN ⚔️</div>
-                    <div class="menu-list" style="text-align:left; width:85%; margin-top:10px;">
-                        ${subMenuIndex === 0 ? '👉 BUSCAR COMBATE' : '   BUSCAR COMBATE'}<br>
-                        ${subMenuIndex === 1 ? '👉 ENTRENAR' : '   ENTRENAR'}<br>
-                        ${subMenuIndex === 2 ? '👉 VOLVER' : '   VOLVER'}
-                    </div>
-                `;
-            }
-            else if (db.phase === 'SHOP') {
-                view.innerHTML = `
-                    <div class="menu-title">🛒 TIENDA (${db.coins}C)</div>
-                    <div class="menu-list" style="text-align:left; width:85%; margin-top:10px;">
-                        ${subMenuIndex === 0 ? '👉 SUPER MEAT (4C)' : '   SUPER MEAT (4C)'}<br>
-                        ${subMenuIndex === 1 ? '👉 MEDICINA (8C)' : '   MEDICINA (8C)'}<br>
-                        ${subMenuIndex === 2 ? '👉 VOLVER' : '   VOLVER'}
-                    </div>
-                `;
-            }
-            else if (db.phase === 'MENU_EXEC') {
-                view.innerHTML = `
-                    <div class="menu-title">PROCESANDO...</div>
-                    <div style="font-size:2.5rem; margin: 15px 0; animation: spin 1.5s infinite linear;">⚙️</div>
-                `;
-            }
-
-            actualizarFilaIconos();
-        }
-
-        function actualizarFilaIconos() {
-            for (let i = 0; i < 6; i++) {
-                const icon = document.getElementById(`icon-${i}`);
-                if (db.phase === 'MAIN' && i === currentIconIndex) {
-                    icon.classList.add('active');
-                } else {
-                    icon.classList.remove('active');
-                }
-            }
-        }
-
-        setInterval(() => {
-            if (db.phase === 'HATCHING' || db.stage === 'muerto') return;
-
-            db.hunger = Math.min(4, db.hunger + 1);
-            if (db.hunger === 4) db.careMistakes++;
-            if (db.poop >= 3) db.isSick = true;
-
-            comprobarEvolucion();
-            guardarJuego();
-            if (typeof renderUI === 'function') renderUI();
-        }, 120000);
-
-        function comprobarEvolucion() {
-            if (db.stage === 'yukimibotamon') {
-                db.stage = 'nyaromon';
-            }
-            else if (db.stage === 'nyaromon') {
-                db.stage = db.careMistakes <= 2 ? 'agumon' : 'gabumon';
-                db.careMistakes = 0;
-            }
-            else if (db.stage === 'agumon') {
-                if (db.trainings >= 5 && db.careMistakes <= 1) db.stage = 'greymon';
-                else if (db.trainings >= 3 && db.careMistakes <= 3) db.stage = 'leomon';
-                else db.stage = 'igamon';
-            }
-            else if (db.stage === 'gabumon') {
-                if (db.trainings >= 4 && db.careMistakes <= 2) db.stage = 'garurumon';
-                else db.stage = 'tailmon';
-            }
-        }
-
-        setInterval(() => {
-            if (typeof renderUI === 'function') renderUI();
-        }, 1000);
-    </script>
-
-    <script src="js/hardware.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/hardware.js"></script>
 </body>
 </html>
