@@ -6,9 +6,19 @@ let db = JSON.parse(localStorage.getItem('r1_digipet_save')) || {
     isSick: false, coins: 10, level: 1, careMistakes: 0, trainings: 0, lastStageCheck: ''
 };
 
-// ¡PARCHE!: Forzamos el vaciado del tracker de UI en cada inicio 
+// ¡PARCHE DE INICIO!: Forzamos el vaciado del tracker de UI en cada inicio 
 // para obligar al DOM a dibujar la pantalla la primera vez que carga.
 db.lastStageCheck = '';
+
+// SOLUCIÓN AL BUG F5: Si la partida se guardó por accidente en fase de procesamiento, 
+// lo recuperamos forzándolo a volver al menú principal para que no se quede congelado.
+if (db.phase === 'MENU_EXEC') {
+    db.phase = 'MAIN';
+}
+
+// Variables volátiles para la Mecánica de Eclosión (Opción A)
+let eggTaps = 0;
+let isEggWobbling = false;
 
 // Salvavidas: Si vienes de una partida vieja y el Digimon ya no existe en el roster actual, resetea.
 if (typeof ROSTER !== 'undefined' && !ROSTER[db.stage]) {
@@ -58,7 +68,14 @@ function renderUI() {
     let emoteSalud = db.isSick ? '🤢' : (db.poop > 0 ? '💩' : '✨');
     statusBar.innerText = `${currentData.nombre.toUpperCase()} ${emoteHambre} ${emoteEnergia} ${emoteSalud}`;
     
-    let uiCheckKey = `${db.phase}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}`;
+    // Control visual del Modo Sueño (Opción C): Filtro de oscurecimiento del LCD por CSS
+    if (db.phase === 'SLEEP') {
+        view.style.filter = 'brightness(0.35) contrast(1.2)';
+    } else {
+        view.style.filter = 'none';
+    }
+
+    let uiCheckKey = `${db.phase}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}_${eggTaps}_${isEggWobbling}`;
     if (db.lastStageCheck === uiCheckKey) {
         actualizarFilaIconos();
         return;
@@ -71,10 +88,32 @@ function renderUI() {
     else if (db.poop > 0) animState = 'refuse';
 
     if (db.phase === 'HATCHING') {
+        // Opción A: Añadimos dinámicamente los keyframes de vibración y mostramos el contador de grietas
+        let wobbleAnimation = isEggWobbling ? 'animation: egg-shake 0.2s ease-in-out;' : '';
         view.innerHTML = `
+            <style>
+                @keyframes egg-shake {
+                    0% { transform: translateX(0) rotate(0deg); }
+                    25% { transform: translateX(-3px) rotate(-6deg); }
+                    75% { transform: translateX(3px) rotate(6deg); }
+                    100% { transform: translateX(0) rotate(0deg); }
+                }
+            </style>
             <div class="menu-title">ELIGE TU HUEVO</div>
-            ${getAnimatedSprite('yukimibotamon', 'idle')}
-            <div class="menu-list" style="font-size:11px; margin-top:4px;">[Pulsa PTT para nacer]</div>
+            <div style="display:inline-block; ${wobbleAnimation}">
+                ${getAnimatedSprite('yukimibotamon', 'idle')}
+            </div>
+            <div class="menu-list" style="font-size:11px; margin-top:4px; line-height: 14px;">
+                ${eggTaps > 0 ? `¡Se está moviendo!<br>Grietas: ${eggTaps}/5` : '[Pulsa PTT para incubar]'}
+            </div>
+        `;
+    }
+    else if (db.phase === 'SLEEP') {
+        // Opción C: Renderizado único para cuando el Digimon duerme permanentemente
+        view.innerHTML = `
+            <div class="menu-title">Zzz... Zzz...</div>
+            ${getAnimatedSprite(db.stage, 'sleep')}
+            <div class="menu-list" style="font-size:10px; margin-top:6px; color:#555;">[Cualquier botón despierta]</div>
         `;
     }
     else if (db.stage === 'muerto') {
@@ -96,9 +135,9 @@ function renderUI() {
         view.innerHTML = `
             <div class="menu-title">⚔️ EXPEDICIÓN ⚔️</div>
             <div class="menu-list" style="text-align:left; width:85%; margin-top:10px;">
-                ${subMenuIndex === 0 ? '👉 BUSCAR COMBATE' : '   BUSCAR COMBATE'}<br>
-                ${subMenuIndex === 1 ? '👉 ENTRENAR' : '   ENTRENAR'}<br>
-                ${subMenuIndex === 2 ? '👉 VOLVER' : '   VOLVER'}
+                ${subMenuIndex === 0 ? '👉 BUSCAR COMBATE' : '    BUSCAR COMBATE'}<br>
+                ${subMenuIndex === 1 ? '👉 ENTRENAR' : '    ENTRENAR'}<br>
+                ${subMenuIndex === 2 ? '👉 VOLVER' : '    VOLVER'}
             </div>
         `;
     }
@@ -106,9 +145,9 @@ function renderUI() {
         view.innerHTML = `
             <div class="menu-title">🛒 TIENDA (${db.coins}C)</div>
             <div class="menu-list" style="text-align:left; width:85%; margin-top:10px;">
-                ${subMenuIndex === 0 ? '👉 SUPER MEAT (4C)' : '   SUPER MEAT (4C)'}<br>
-                ${subMenuIndex === 1 ? '👉 MEDICINA (8C)' : '   MEDICINA (8C)'}<br>
-                ${subMenuIndex === 2 ? '👉 VOLVER' : '   VOLVER'}
+                ${subMenuIndex === 0 ? '👉 SUPER MEAT (4C)' : '    SUPER MEAT (4C)'}<br>
+                ${subMenuIndex === 1 ? '👉 MEDICINA (8C)' : '    MEDICINA (8C)'}<br>
+                ${subMenuIndex === 2 ? '👉 VOLVER' : '    VOLVER'}
             </div>
         `;
     }
@@ -133,29 +172,68 @@ function actualizarFilaIconos() {
     }
 }
 
+// Interrupción de Sueño: Si interactúa con los controles físicos, se despierta automáticamente
+function comprobarDespertar() {
+    if (db.phase === 'SLEEP') {
+        db.phase = 'MAIN';
+        guardarJuego();
+        renderUI();
+        return true; // Interrumpió la acción
+    }
+    return false;
+}
+
 // --- 3. LÓGICA DE NAVEGACIÓN Y ACCIONES ---
 function moveNext() {
+    if (comprobarDespertar()) return;
     if (db.phase === 'MAIN') currentIconIndex = (currentIconIndex + 1) % 6;
     else if (db.phase === 'EXPEDITION' || db.phase === 'SHOP') subMenuIndex = (subMenuIndex + 1) % 3;
     renderUI();
 }
 
 function movePrev() {
+    if (comprobarDespertar()) return;
     if (db.phase === 'MAIN') currentIconIndex = (currentIconIndex - 1 + 6) % 6;
     else if (db.phase === 'EXPEDITION' || db.phase === 'SHOP') subMenuIndex = (subMenuIndex - 1 + 3) % 3;
     renderUI();
 }
 
 window.ejecutarAccionFisica = function() {
-    if (db.phase === 'HATCHING' || db.stage === 'muerto') {
+    if (comprobarDespertar()) return;
+
+    // Opción A: Lógica de eclosión rítmica interactiva
+    if (db.phase === 'HATCHING') {
+        eggTaps++;
+        isEggWobbling = true;
+        renderUI();
+
+        // Apaga el efecto de bamboleo poco después del click
+        setTimeout(() => {
+            isEggWobbling = false;
+            renderUI();
+        }, 200);
+
+        if (eggTaps >= 5) {
+            eggTaps = 0;
+            db.stage = 'yukimibotamon'; 
+            db.phase = 'MAIN';
+            db.hunger = 0;
+            db.energy = 4;
+            db.poop = 0;
+            db.isSick = false;
+            db.trainings = 0;
+            db.careMistakes = 0;
+            guardarJuego();
+            renderUI();
+        }
+        return;
+    }
+
+    if (db.stage === 'muerto') {
         db.stage = 'yukimibotamon'; 
         db.phase = 'MAIN';
-        db.hunger = 0;
-        db.energy = 4;
-        db.poop = 0;
-        db.isSick = false;
-        db.trainings = 0;
-        db.careMistakes = 0;
+        db.hunger = 0; db.energy = 4; db.poop = 0; db.isSick = false;
+        db.trainings = 0; db.careMistakes = 0;
         guardarJuego();
         renderUI();
         return;
@@ -188,19 +266,29 @@ window.ejecutarAccionFisica = function() {
             case 0: db.hunger = Math.max(0, db.hunger - 1); mostrarAccionBreve(); break;
             case 1: db.phase = 'EXPEDITION'; subMenuIndex = 0; break;
             case 2: db.phase = 'SHOP'; subMenuIndex = 0; break;
-            case 3: db.energy = Math.min(4, db.energy + 2); mostrarAccionBreve(); break;
+            
+            // Opción C: Activar el Modo Sueño Real en lugar de curar energía al instante
+            case 3: 
+                db.phase = 'SLEEP'; 
+                guardarJuego();
+                renderUI();
+                break;
+                
             case 4: db.poop = 0; mostrarAccionBreve(); break;
             case 5: db.isSick = false; mostrarAccionBreve(); break;
         }
-        guardarJuego();
-        renderUI();
+        // Se quita el guardarJuego() global de aquí para que no interfiera con fases intermedias
     }
 };
 
 function mostrarAccionBreve() {
     db.phase = 'MENU_EXEC';
     renderUI();
-    setTimeout(() => { db.phase = 'MAIN'; renderUI(); }, 1000);
+    setTimeout(() => { 
+        db.phase = 'MAIN'; 
+        guardarJuego(); // Guardamos una vez ha regresado de forma segura a MAIN
+        renderUI(); 
+    }, 1000);
 }
 
 function ejecutarEntrenamiento() {
@@ -277,9 +365,19 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('scrollDown', moveNext);
     window.addEventListener('sideClick', ejecutarAccionFisica);
 
-    // Bucle vital
+    // Bucle vital (Cada 2 minutos)
     setInterval(() => {
         if (db.phase === 'HATCHING' || db.stage === 'muerto') return;
+        
+        // Opción C: Modificación del Bucle Vital para el estado SLEEP
+        if (db.phase === 'SLEEP') {
+            db.energy = Math.min(4, db.energy + 1); // Recuperación pasiva de energía
+            db.hunger = Math.min(4, db.hunger + 1); // Sigue consumiendo hambre lentamente pero no genera cacas
+            guardarJuego();
+            renderUI();
+            return; // Saltamos comprobación de evolución e infección médica mientras duerme
+        }
+
         db.hunger = Math.min(4, db.hunger + 1);
         if (db.hunger === 4) db.careMistakes++;
         if (db.poop >= 3) db.isSick = true;
