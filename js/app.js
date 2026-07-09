@@ -40,19 +40,21 @@ function getAnimatedSprite(id, state = 'idle') {
     let digi = ROSTER[id] || ROSTER['yukimibotamon'];
     let animConfig = ANIMATIONS[state] || ANIMATIONS['idle'];
     
-    // Si tiene más de 1 frame, activamos la animación. Si no, el CSS usa la posición estática base.
     let inlineStyle = animConfig.frames > 1 
         ? `animation: play-anim 0.8s steps(${animConfig.frames}) infinite;`
         : ``;
 
-    // Calculamos el reflejo en el eje X basándonos en la dirección actual
-    // Si va a la derecha (1), aplicamos scaleX(-1). Si va a la izquierda (-1), se queda normal (1).
     let flipX = spriteDireccion === 1 ? -1 : 1;
+    
+    // CORRECCIÓN: Definimos el factor de escala aquí para no perderlo
+    let scaleFactor = 3.5; 
+    let transformValue = `scale(${scaleFactor}) scaleX(${flipX})`;
 
     // Solo aplicamos el movimiento de coordenadas si estamos deambulando en la pantalla MAIN
+    // Nota: Agregamos el transformValue aquí también para mantener el tamaño
     let posicionEstilo = (db.phase === 'MAIN' && state === 'idle')
-        ? `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) scaleX(${flipX}); top: 55%; transition: none;`
-        : `transform: scaleX(${flipX});`;
+        ? `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) ${transformValue}; top: 55%; transition: none;`
+        : `transform: ${transformValue};`;
 
     return `<div class="sprite-container-wrapper" style="position: relative; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center;">
             <div class="sprite-grid-render" style="
@@ -61,6 +63,8 @@ function getAnimatedSprite(id, state = 'idle') {
                 --offset-y: ${SHEET_CONFIG.startY};
                 --w: ${SHEET_CONFIG.w}; 
                 --h: ${SHEET_CONFIG.h}; 
+                --sheet-w: ${SHEET_CONFIG.sheetW}px; 
+                --sheet-h: ${SHEET_CONFIG.sheetH}px;
                 --row: ${digi.row};
                 --col: ${animConfig.col};
                 --frames: ${animConfig.frames};
@@ -68,7 +72,7 @@ function getAnimatedSprite(id, state = 'idle') {
                 ${inlineStyle}
             "></div>
         </div>`;
-    }
+}
 
 function renderUI() {
     const view = document.getElementById('view-port');
