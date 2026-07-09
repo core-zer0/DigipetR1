@@ -1,4 +1,3 @@
-// js/app.js
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Inicializamos el entorno de hardware del SDK (del backup)
     if (typeof initializeHardwareListeners === 'function') {

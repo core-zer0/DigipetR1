@@ -200,7 +200,6 @@
             let emoteEnergia = db.energy <= 1 ? '🪫' : '🔋';
             let emoteSalud = db.isSick ? '🤢' : (db.poop > 0 ? '💩' : '✨');
             statusBar.innerText = `${currentData.nombre.toUpperCase()} ${emoteHambre} ${emoteEnergia} ${emoteSalud}`;
-
             let uiCheckKey = `${db.phase}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}`;
             if (db.lastStageCheck === uiCheckKey) {
                 actualizarFilaIconos();
