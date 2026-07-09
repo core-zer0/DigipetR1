@@ -6,7 +6,10 @@ const SHEET_CONFIG = {
     startX: 96, // Píxeles de margen izquierdo (donde acaban los nombres y empiezan los sprites) - A AJUSTAR
     startY: 44,  // Píxeles de margen superior (donde acaban los textos de cabecera) - A AJUSTAR
     w: 16,       // Ancho estándar de un frame de Pendulum Color - A AJUSTAR
-    h: 16        // Alto estándar de un frame - A AJUSTAR
+    h: 16,        // Alto estándar de un frame - A AJUSTAR
+    sheetW: 300, // <--- AÑADE ESTO (ancho total de tu archivo png)
+    sheetH: 605  // <--- AÑADE ESTO (alto total de tu archivo png)
+
 };
 
 // Diccionario de columnas según el estado (Animation Mapper)
