@@ -53,7 +53,7 @@ function getAnimatedSprite(id, state = 'idle') {
     // Solo aplicamos el movimiento de coordenadas si estamos deambulando en la pantalla MAIN
     // Nota: Agregamos el transformValue aquí también para mantener el tamaño
     let posicionEstilo = (db.phase === 'MAIN' && state === 'idle')
-        ? `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) ${transformValue}; top: 55%; transition: none;`
+        ? `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) ${transformValue}; top: 55%;`
         : `transform: ${transformValue};`;
 
     return `<div class="sprite-container-wrapper" style="position: relative; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center;">

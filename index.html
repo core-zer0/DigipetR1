@@ -94,7 +94,6 @@
             display: inline-block;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
-            transform: scale(3.5); /* Aumentado para que los 16px luzcan mejor */
             margin: 20px 0;
             
             width: calc(var(--w) * 1px);
@@ -109,6 +108,15 @@
             
             /* Posición estática por defecto (Vital para frames únicos como Hurt o Sad) */
             background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px);
+        }
+
+        .sprite-container-wrapper {
+            position: relative; 
+            width: 100%; 
+            height: 140px;
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
         }
 
         @keyframes play-anim {
