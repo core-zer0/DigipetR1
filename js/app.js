@@ -19,6 +19,28 @@ document.addEventListener('DOMContentLoaded', () => {
     logger.innerText = 'Buscando rueda/teclado...';
     document.body.appendChild(logger);
 
+    function getAnimatedSprite(id, state = 'idle') {
+        let digi = ROSTER[id] || ROSTER['yukimibotamon'];
+        let animConfig = ANIMATIONS[state] || ANIMATIONS['idle'];
+        
+        // Si la animación tiene más de 1 frame, aplicamos @keyframes. Si es 1 frame (happy, hurt...), se queda estático en su coordenada.
+        let inlineStyle = animConfig.frames > 1 
+            ? `animation: play-anim 0.8s steps(${animConfig.frames}) infinite;`
+            : `background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px);`;
+
+        return `<div class="sprite-grid-render" style="
+            --sheet-url: url('${SHEET_CONFIG.url}'); 
+            --offset-x: ${SHEET_CONFIG.startX};
+            --offset-y: ${SHEET_CONFIG.startY};
+            --w: ${SHEET_CONFIG.w}; 
+            --h: ${SHEET_CONFIG.h}; 
+            --row: ${digi.row};
+            --col: ${animConfig.col};
+            --frames: ${animConfig.frames};
+            ${inlineStyle}
+        "></div>`;
+    }
+
     // --- LÓGICA DE NAVEGACIÓN ADAPTADA AL DIGIVICE ---
     function moveNext() {
         if (db.phase === 'MAIN') {
@@ -75,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window.ejecutarAccionFisica = function() {
     // Si es un huevo o está muerto, el botón PTT lo reinicia
     if (db.phase === 'HATCHING' || db.stage === 'muerto') {
-        db.stage = 'botamon'; 
+        db.stage = 'yukimibotamon'; 
         db.phase = 'MAIN';
         db.hunger = 0;
         db.energy = 4;

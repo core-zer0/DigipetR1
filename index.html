@@ -88,12 +88,30 @@
             font-weight: bold;
         }
 
-        .sprite-render {
-            height: 72px;
+        /* --- NUEVO SISTEMA DE RENDERIZADO GRID --- */
+        .sprite-grid-render {
+            display: inline-block;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
-            margin: 5px 0;
+            transform: scale(2.5);
+            margin: 20px 0;
+            
+            /* Variables inyectadas por JS desde roster.js */
+            width: calc(var(--w) * 1px);
+            height: calc(var(--h) * 1px);
+            background-image: var(--sheet-url);
+            background-repeat: no-repeat;
+
+            /* Matemáticas de la cuadrícula */
+            --start-x: calc(var(--offset-x) + (var(--col) * var(--w)));
+            --start-y: calc(var(--offset-y) + (var(--row) * var(--h)));
         }
+
+        @keyframes play-anim {
+            from { background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px); }
+            to { background-position: calc((var(--start-x) + (var(--w) * var(--frames))) * -1px) calc(var(--start-y) * -1px); }
+        }
+        /* ----------------------------------------- */
 
         .action-menu {
             display: flex;
@@ -129,7 +147,6 @@
             line-height: 1.2;
         }
         
-        /* Animación para engranaje del menú de proceso */
         @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
@@ -150,14 +167,12 @@
         </div>
     </div>
 
-    <!-- 1. Carga de la Base de Datos y función del Sprite -->
     <script src="js/roster.js"></script>
 
-    <!-- 2. Lógica interna de renderizado y estado (Se mantiene en el index) -->
     <script>
         let db = JSON.parse(localStorage.getItem('r1_digipet_save')) || {
             phase: 'HATCHING', 
-            stage: 'huevo', 
+            stage: 'yukimibotamon', /* Actualizado al nuevo roster */
             hunger: 0,       
             energy: 4,       
             poop: 0,
@@ -179,14 +194,14 @@
         function renderUI() {
             const view = document.getElementById('view-port');
             const statusBar = document.getElementById('status-bar');
-            let currentData = ROSTER[db.stage] || ROSTER['huevo'];
+            let currentData = ROSTER[db.stage] || ROSTER['yukimibotamon'];
             
             let emoteHambre = db.hunger >= 3 ? '💢' : '🍖';
             let emoteEnergia = db.energy <= 1 ? '🪫' : '🔋';
             let emoteSalud = db.isSick ? '🤢' : (db.poop > 0 ? '💩' : '✨');
             statusBar.innerText = `${currentData.nombre.toUpperCase()} ${emoteHambre} ${emoteEnergia} ${emoteSalud}`;
 
-            let uiCheckKey = `${db.phase}_${db.stage}_${subMenuIndex}_${db.poop}`;
+            let uiCheckKey = `${db.phase}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}`;
             if (db.lastStageCheck === uiCheckKey) {
                 actualizarFilaIconos();
                 return;
@@ -195,17 +210,27 @@
 
             view.innerHTML = '';
 
+            // Sistema de estados para inyectar a la animación
+            let animState = 'idle';
+            if (db.isSick) {
+                animState = 'hurt';
+            } else if (db.hunger >= 3) {
+                animState = 'sad';
+            } else if (db.poop > 0) {
+                animState = 'refuse';
+            }
+
             if (db.phase === 'HATCHING') {
                 view.innerHTML = `
                     <div class="menu-title">ELIGE TU HUEVO</div>
-                    ${getAnimatedSprite('huevo')}
+                    ${getAnimatedSprite('yukimibotamon', 'idle')}
                     <div class="menu-list" style="font-size:11px; margin-top:4px;">[Pulsa PTT para nacer]</div>
                 `;
             }
             else if (db.stage === 'muerto') {
                 view.innerHTML = `
                     <div class="menu-title">CONEXIÓN PERDIDA</div>
-                    ${getAnimatedSprite('muerto')}
+                    ${getAnimatedSprite('yukimibotamon', 'hurt')} <!-- Fallback para muerto -->
                     <div class="menu-list" style="font-size:11px; margin-top:4px;">[PTT para Reiniciar]</div>
                 `;
             }
@@ -213,7 +238,7 @@
                 let poopDisplay = '💩'.repeat(db.poop);
                 view.innerHTML = `
                     <div class="menu-title">LV.${db.level} ${currentData.nombre}</div>
-                    ${getAnimatedSprite(db.stage)}
+                    ${getAnimatedSprite(db.stage, animState)}
                     <div style="font-size:11px; height:14px; margin-top:2px;">${poopDisplay}</div>
                 `;
             } 
@@ -271,32 +296,24 @@
         }, 120000);
 
         function comprobarEvolucion() {
-            if (db.stage === 'botamon') {
-                db.stage = 'koromon';
+            /* Árbol evolutivo adaptado al Pendulum Color Zero */
+            if (db.stage === 'yukimibotamon') {
+                db.stage = 'nyaromon';
             }
-            else if (db.stage === 'koromon') {
-                db.stage = db.careMistakes <= 2 ? 'agumon' : 'betamon';
+            else if (db.stage === 'nyaromon') {
+                db.stage = db.careMistakes <= 2 ? 'agumon' : 'gabumon';
                 db.careMistakes = 0;
             }
             else if (db.stage === 'agumon') {
                 if (db.trainings >= 5 && db.careMistakes <= 1) db.stage = 'greymon';
-                else if (db.trainings >= 3 && db.careMistakes <= 3) db.stage = 'tyranomon';
-                else if (db.careMistakes > 4) db.stage = 'numemon';
-                else db.stage = 'meramon';
+                else if (db.trainings >= 3 && db.careMistakes <= 3) db.stage = 'leomon';
+                else db.stage = 'igamon';
             }
-            else if (db.stage === 'betamon') {
-                if (db.trainings >= 4 && db.careMistakes <= 2) db.stage = 'seadramon';
-                else if (db.careMistakes > 3) db.stage = 'numemon';
-                else db.stage = 'devimon';
+            else if (db.stage === 'gabumon') {
+                if (db.trainings >= 4 && db.careMistakes <= 2) db.stage = 'garurumon';
+                else db.stage = 'tailmon';
             }
-            else if (db.stage === 'numemon') {
-                if (db.trainings >= 8) db.stage = 'monzaemon';
-            }
-            else if (['greymon', 'tyranomon', 'devimon', 'meramon', 'seadramon'].includes(db.stage)) {
-                if (db.trainings >= 12 && db.level >= 5) {
-                    db.stage = Math.random() > 0.5 ? 'metalgreymon' : 'mamemon';
-                }
-            }
+            // Agrega más ramas si lo deseas, adaptado a tus filas de ROSTER
         }
 
         setInterval(() => {
@@ -306,7 +323,6 @@
         renderUI();
     </script>
 
-    <!-- 3. Carga de listeners físicos y acciones (Tu archivo app.js actual) -->
     <script src="js/hardware.js"></script>
     <script src="js/app.js"></script>
 </body>
