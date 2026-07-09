@@ -88,7 +88,7 @@
             font-weight: bold;
         }
 
-        /* --- NUEVO SISTEMA DE RENDERIZADO GRID --- */
+        /* ---  SISTEMA DE RENDERIZADO GRID --- */
         .sprite-grid-render {
             display: inline-block;
             image-rendering: pixelated;
@@ -102,15 +102,21 @@
             background-image: var(--sheet-url);
             background-repeat: no-repeat;
 
-            /* Matemáticas de la cuadrícula */
-            --start-x: calc(var(--offset-x) + (var(--col) * var(--w)));
-            --start-y: calc(var(--offset-y) + (var(--row) * var(--h)));
+        /* Matemáticas de la cuadrícula: sumamos +1 a cada salto de columna/fila */
+            --start-x: calc(var(--offset-x) + (var(--col) * (var(--w) + 1)));
+            --start-y: calc(var(--offset-y) + (var(--row) * (var(--h) + 1)));
         }
 
         @keyframes play-anim {
-            from { background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px); }
-            to { background-position: calc((var(--start-x) + (var(--w) * var(--frames))) * -1px) calc(var(--start-y) * -1px); }
-        }
+                    from { 
+                        background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px); 
+                    }
+                    /* Multiplicamos los frames por (ancho + 1) para que el salto de animación sea limpio */
+                    to { 
+                        background-position: calc((var(--start-x) + (var(--frames) * (var(--w) + 1))) * -1px) calc(var(--start-y) * -1px); 
+                    }
+                }
+                
         /* ----------------------------------------- */
 
         .action-menu {
