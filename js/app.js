@@ -25,9 +25,11 @@ if (typeof ROSTER !== 'undefined' && !ROSTER[db.stage]) {
     db.stage = 'yukimibotamon';
     db.phase = 'HATCHING';
 }
-
+// Variables globales
 let currentIconIndex = 0; 
 let subMenuIndex = 0;
+let spritePosX = 50;
+let spriteDireccion = -1;
 
 function guardarJuego() {
     localStorage.setItem('r1_digipet_save', JSON.stringify(db));
@@ -43,18 +45,30 @@ function getAnimatedSprite(id, state = 'idle') {
         ? `animation: play-anim 0.8s steps(${animConfig.frames}) infinite;`
         : ``;
 
-    return `<div class="sprite-grid-render" style="
-        --sheet-url: url('${SHEET_CONFIG.url}'); 
-        --offset-x: ${SHEET_CONFIG.startX};
-        --offset-y: ${SHEET_CONFIG.startY};
-        --w: ${SHEET_CONFIG.w}; 
-        --h: ${SHEET_CONFIG.h}; 
-        --row: ${digi.row};
-        --col: ${animConfig.col};
-        --frames: ${animConfig.frames};
-        ${inlineStyle}
-    "></div>`;
-}
+    // Calculamos el reflejo en el eje X basándonos en la dirección actual
+    // Si va a la derecha (1), aplicamos scaleX(-1). Si va a la izquierda (-1), se queda normal (1).
+    let flipX = spriteDireccion === 1 ? -1 : 1;
+
+    // Solo aplicamos el movimiento de coordenadas si estamos deambulando en la pantalla MAIN
+    let posicionEstilo = (db.phase === 'MAIN' && state === 'idle')
+        ? `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) scaleX(${flipX}); top: 55%; transition: none;`
+        : `transform: scaleX(${flipX});`;
+
+    return `<div class="sprite-container-wrapper" style="position: relative; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center;">
+            <div class="sprite-grid-render" style="
+                --sheet-url: url('${SHEET_CONFIG.url}'); 
+                --offset-x: ${SHEET_CONFIG.startX};
+                --offset-y: ${SHEET_CONFIG.startY};
+                --w: ${SHEET_CONFIG.w}; 
+                --h: ${SHEET_CONFIG.h}; 
+                --row: ${digi.row};
+                --col: ${animConfig.col};
+                --frames: ${animConfig.frames};
+                ${posicionEstilo}
+                ${inlineStyle}
+            "></div>
+        </div>`;
+    }
 
 function renderUI() {
     const view = document.getElementById('view-port');
@@ -367,6 +381,32 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('scrollUp', movePrev);
     window.addEventListener('scrollDown', moveNext);
     window.addEventListener('sideClick', ejecutarAccionFisica);
+
+    // --- BUCLE DE DEAMBULEO RETRO (Cada 2.5 segundos da un saltito) ---
+    setInterval(() => {
+        // Solo deambula si está en la pantalla principal y no está enfermo, triste o reteniendo cacas
+        if (db.phase !== 'MAIN' || db.isSick || db.hunger >= 3 || db.poop > 0 || db.stage === 'muerto') return;
+
+        // Decisión aleatoria: 70% de probabilidad de moverse, 30% de quedarse quieto o cambiar de dirección
+        let rand = Math.random();
+        if (rand < 0.2) {
+            spriteDireccion *= -1; // Da la vuelta en estático
+        } else if (rand > 0.3) {
+            // Da un "salto" retro de 12% del tamaño de la pantalla en su dirección actual
+            spritePosX += (spriteDireccion * 12);
+            
+            // Límites de la pantalla LCD (un colchón entre 15% y 85% para que no se salga de los bordes)
+            if (spritePosX < 15) {
+                spritePosX = 15;
+                spriteDireccion = 1; // Rebota a la derecha
+            } else if (spritePosX > 85) {
+                spritePosX = 85;
+                spriteDireccion = -1; // Rebota a la izquierda
+            }
+        }
+        
+        renderUI(); // Forzamos actualización visual del deambuleo
+    }, 2500);
 
     // Bucle vital (Cada 2 minutos)
     setInterval(() => {
