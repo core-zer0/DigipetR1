@@ -47,7 +47,7 @@ function getAnimatedSprite(id, state = 'idle') {
     let flipX = spriteDireccion === 1 ? -1 : 1;
     
     // CORRECCIÓN: Definimos el factor de escala aquí para no perderlo
-    let scaleFactor = 5; 
+    let scaleFactor = 5;  
     let transformValue = `scale(${scaleFactor}) scaleX(${flipX})`;
 
     // Solo aplicamos el movimiento de coordenadas si estamos deambulando en la pantalla MAIN
@@ -56,7 +56,7 @@ function getAnimatedSprite(id, state = 'idle') {
         ? `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) ${transformValue}; top: 55%;`
         : `transform: ${transformValue};`;
 
-    return `<div style="display: flex; justify-content: center; align-items: center; height: 140px; width: 100%; position: relative;">
+    return `<div style="display: flex; justify-content: center; align-items: center; height: 60px; width: 100%; position: relative;">
             <div class="sprite-grid-render" style="
                 --sheet-url: url('${SHEET_CONFIG.url}'); 
                 --offset-x: ${SHEET_CONFIG.startX};
