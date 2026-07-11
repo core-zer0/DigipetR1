@@ -176,6 +176,63 @@ function renderUI() {
             <div style="font-size:2.5rem; margin: 15px 0; animation: spin 1.5s infinite linear;">⚙️</div>
         `;
     }
+    else if (db.phase === 'KEYBOARD') {
+        view.innerHTML = `
+            <div class="menu-title">TERMINAL DIGITAL</div>
+            
+            <!-- Mostramos un pequeño sprite para saber con quién hablamos -->
+            <div style="margin: 6px 0;">
+                ${getAnimatedSprite(db.stage, 'idle')}
+            </div>
+
+            <!-- Formulario nativo para invocar el teclado táctil -->
+            <form id="ai-form" style="width: 95%; display: flex; gap: 4px; margin: 0 auto;" onsubmit="enviarMensajeAI(event)">
+                <input 
+                    type="text" 
+                    id="ai-input" 
+                    placeholder="Toca para escribir..." 
+                    autocomplete="off"
+                    maxlength="50"
+                    style="
+                        flex: 1; 
+                        background: #111; 
+                        color: #8b9d77; 
+                        border: 2px solid #222; 
+                        padding: 6px 8px; 
+                        font-family: 'Courier New', monospace; 
+                        font-size: 0.8rem;
+                        border-radius: 4px;
+                        outline: none;
+                        box-shadow: inset 0 0 5px rgba(0,0,0,0.8);
+                    "
+                >
+                <button 
+                    type="submit" 
+                    style="
+                        background: #222; 
+                        color: #8b9d77; 
+                        border: 1px solid #444; 
+                        padding: 0 10px; 
+                        font-weight: bold; 
+                        border-radius: 4px;
+                        cursor: pointer;
+                    "
+                >✔</button>
+            </form>
+            
+            <div style="font-size: 0.65rem; color: #333; margin-top: 8px;">
+                [Pantalla táctil habilitada para teclado]
+            </div>
+        `;
+        
+        // Opcional: Foco automático para que el Rabbit intente abrir el teclado
+        // en cuanto entres a la pantalla (dependerá de los permisos del navegador en el R1)
+        setTimeout(() => {
+            const input = document.getElementById('ai-input');
+            if (input) input.focus();
+        }, 150);
+    }
+    
     actualizarFilaIconos();
 }
 
@@ -349,6 +406,120 @@ function comprobarEvolucion() {
     else if (db.stage === 'gabumon') {
         if (db.trainings >= 4 && db.careMistakes <= 2) db.stage = 'garurumon';
         else db.stage = 'tailmon';
+    }
+}
+function llamarModeloRabbit(systemPrompt, mensajeUsuario) {
+    return new Promise((resolve, reject) => {
+        // 1. Fallback por si estás probando en el PC de casa y no en el hardware del R1
+        if (typeof PluginMessageHandler === 'undefined') {[cite: 3, 5]
+            console.warn("PluginMessageHandler no detectado. Ejecutando en modo emulador PC.");[cite: 3, 5]
+            setTimeout(() => resolve("¡Grr! (Modo PC: No estoy dentro del Rabbit R1)"), 1500);
+            return;
+        }
+
+        // 2. Unificamos prompts y exigimos formato JSON (siguiendo el patrón oficial del SDK)[cite: 3]
+        const fullPrompt = `${systemPrompt}\n\nMENSAJE DEL JUGADOR: "${mensajeUsuario}"\n\nResponde ÚNICAMENTE con un JSON válido con esta estructura exacta: {"respuesta": "tu texto corto aquí"}`;[cite: 3]
+
+        const payload = {
+            message: fullPrompt,[cite: 3, 5]
+            useLLM: true,[cite: 3, 5]
+            wantsR1Response: false // Si lo pones en 'true', ¡el altavoz del Rabbit leerá el mensaje con síntesis de voz!
+        };
+
+        // 3. Temporizador de seguridad (15s) por si el bosque digital está caído
+        const timeoutId = setTimeout(() => {
+            reject("Timeout: El Digimundo no responde.");
+        }, 15000);
+
+        // 4. Interceptamos la respuesta global del sistema operativo[cite: 6]
+        const originalHandler = window.onPluginMessage;[cite: 6]
+        window.onPluginMessage = function(data) {[cite: 6]
+            clearTimeout(timeoutId);
+            
+            // Restauramos el handler anterior para no romper otras funciones del OS
+            if (originalHandler) window.onPluginMessage = originalHandler;[cite: 6]
+
+            try {
+                let parsed = null;
+                // El SDK puede devolver la respuesta en data.data o en data.message[cite: 3, 5]
+                if (data.data) {[cite: 3, 5]
+                    parsed = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;[cite: 3]
+                } else if (data.message) {[cite: 3, 5]
+                    parsed = JSON.parse(data.message);[cite: 3]
+                }
+
+                // Si logramos extraer el JSON limpio, devolvemos solo el texto del Digimon[cite: 3]
+                if (parsed && parsed.respuesta) {
+                    resolve(parsed.respuesta);
+                } else {
+                    // Fallback si la IA no obedeció el formato JSON
+                    resolve(data.message || data.data || "... [ruido estático] ...");[cite: 3, 5]
+                }
+            } catch (e) {[cite: 3]
+                // Si falla el parseo, devolvemos el texto crudo tal cual[cite: 3]
+                resolve(data.message || data.data || "... [error de decodificación] ...");[cite: 3, 5]
+            }
+        };
+
+        // 5. Enviamos la petición al hardware nativo[cite: 3, 5]
+        PluginMessageHandler.postMessage(JSON.stringify(payload));[cite: 3, 5]
+    });
+}
+
+async function consultarDigimonAI(mensajeUsuario, idDigimon) {
+    // 1. Capturamos el estado real del juego
+    const digi = ROSTER[idDigimon] || ROSTER['yukimibotamon'];
+    
+    // 2. Construimos el System Prompt con las estadísticas de tu V-Pet
+    const systemPrompt = `
+        Eres un Digimon llamado ${digi.nombre}. Estás dentro de un dispositivo Digivice.
+        
+        Tus estadísticas actuales en el juego son:
+        - Nivel: ${db.level}
+        - Hambre: ${db.hunger}/5
+        - Suciedad en pantalla: ${db.poop} cacas
+        - Estado de salud: ${db.isSick ? 'ENFERMO' : 'SANO'}
+        
+        INSTRUCCIONES DE COMPORTAMIENTO:
+        1. Responde SIEMPRE en carácter, como si fueras este monstruo digital.
+        2. Si tu "Hambre" es 0 o estás "ENFERMO", debes quejarte de tu mal estado en la respuesta, sin importar qué te pregunte el jugador.
+        3. Tus respuestas deben ser breves (máximo 2 o 3 frases cortas) para que quepan en una pantalla retro de LCD.
+        4. Puedes dar datos curiosos del Mundo Digital si el jugador te lo pide.
+    `;
+
+    // 3. Llamada al puente asíncrono del Rabbit R1
+    try {
+        let respuestaAI = await llamarModeloRabbit(systemPrompt, mensajeUsuario);
+        
+        // Cuando llegue la respuesta, cambiamos la fase y actualizamos la interfaz
+        db.phase = 'COMMS_RESPONSE';
+        db.lastAiResponse = respuestaAI; // Guarda la respuesta para mostrarla en el LCD
+        renderUI();
+        
+        return respuestaAI;
+    } catch (error) {
+        console.error("Error en conexión AI:", error);
+        db.phase = 'COMMS_RESPONSE';
+        db.lastAiResponse = "... [ERROR DIGITAL: SEÑAL PERDIDA] ...";
+        renderUI();
+        return db.lastAiResponse;
+    }
+}
+
+function enviarMensajeAI(event) {
+    // Evitamos que la web se recargue por el comportamiento por defecto de los formularios
+    event.preventDefault(); 
+    
+    const input = document.getElementById('ai-input');
+    const mensaje = input ? input.value.trim() : "";
+    
+    if (mensaje.length > 0) {
+        // Cambiamos a la pantalla de "Procesando respuesta..."
+        db.phase = 'COMMS_THINKING';
+        renderUI();
+        
+        // Ejecutamos la consulta asíncrona al modelo del Rabbit
+        consultarDigimonAI(mensaje, db.stage);
     }
 }
 
