@@ -32,30 +32,40 @@ function guardarJuego() {
 
 // --- 2. FUNCIONES DE RENDERIZADO VISUAL ---
 function getAnimatedSprite(id, state = 'idle') {
-    let digi = ROSTER[id] || ROSTER['yukimibotamon'];
-    let animConfig = ANIMATIONS[state] || ANIMATIONS['idle'];
+    let digi = (typeof ROSTER !== 'undefined' && ROSTER[id]) ? ROSTER[id] : { row: 0, nombre: 'Digimon' };
+    let animConfig = (typeof ANIMATIONS !== 'undefined' && ANIMATIONS[state]) ? ANIMATIONS[state] : { col: 0, frames: 1 };
     
     let inlineStyle = animConfig.frames > 1 
         ? `animation: play-anim 0.8s steps(${animConfig.frames}) infinite;`
         : ``;
 
     let flipX = spriteDireccion === 1 ? -1 : 1;
-    let scaleFactor = 5;
+    
+    // ESCALADO AUMENTADO A scale(7) PARA LLENAR LA PANTALLA DE 512x512px
+    let scaleFactor = 7;
     let transformValue = `scale(${scaleFactor}) scaleX(${flipX})`;
 
     let posicionEstilo = (db.phase === 'MAIN' && state === 'idle')
-        ? `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) ${transformValue}; top: 55%;`
+        ? `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) ${transformValue}; top: 52%;`
         : `transform: ${transformValue};`;
 
-    return `<div style="display: flex; justify-content: center; align-items: center; height: 60px; width: 100%; position: relative;">
+    let sheetUrl = (typeof SHEET_CONFIG !== 'undefined') ? SHEET_CONFIG.url : 'sprites/digimons.png';
+    let startX = (typeof SHEET_CONFIG !== 'undefined') ? SHEET_CONFIG.startX : 0;
+    let startY = (typeof SHEET_CONFIG !== 'undefined') ? SHEET_CONFIG.startY : 0;
+    let w = (typeof SHEET_CONFIG !== 'undefined') ? SHEET_CONFIG.w : 16;
+    let h = (typeof SHEET_CONFIG !== 'undefined') ? SHEET_CONFIG.h : 16;
+    let sheetW = (typeof SHEET_CONFIG !== 'undefined') ? SHEET_CONFIG.sheetW : 256;
+    let sheetH = (typeof SHEET_CONFIG !== 'undefined') ? SHEET_CONFIG.sheetH : 256;
+
+    return `<div style="display: flex; justify-content: center; align-items: center; height: 120px; width: 100%; position: relative;">
             <div class="sprite-grid-render" style="
-                --sheet-url: url('${SHEET_CONFIG.url}'); 
-                --offset-x: ${SHEET_CONFIG.startX};
-                --offset-y: ${SHEET_CONFIG.startY};
-                --w: ${SHEET_CONFIG.w}; 
-                --h: ${SHEET_CONFIG.h}; 
-                --sheet-w: ${SHEET_CONFIG.sheetW}px; 
-                --sheet-h: ${SHEET_CONFIG.sheetH}px;
+                --sheet-url: url('${sheetUrl}'); 
+                --offset-x: ${startX};
+                --offset-y: ${startY};
+                --w: ${w}; 
+                --h: ${h}; 
+                --sheet-w: ${sheetW}px; 
+                --sheet-h: ${sheetH}px;
                 --row: ${digi.row};
                 --col: ${animConfig.col};
                 --frames: ${animConfig.frames};
@@ -71,7 +81,7 @@ function renderUI() {
     const statusBar = document.getElementById('status-bar');
     if (!view || !statusBar) return; 
 
-    let currentData = ROSTER[db.stage] || ROSTER['yukimibotamon'];
+    let currentData = (typeof ROSTER !== 'undefined' && ROSTER[db.stage]) ? ROSTER[db.stage] : { nombre: 'DIGIMON' };
     
     let emoteHambre = db.hunger >= 3 ? '💢' : '🍖';
     let emoteEnergia = db.energy <= 1 ? '🪫' : '🔋';
@@ -84,7 +94,6 @@ function renderUI() {
         view.style.filter = 'none';
     }
 
-    // CORRECCIÓN CRÍTICA: Añadidos spritePosX, spriteDireccion y lastAiResponse al check
     let uiCheckKey = `${db.phase}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}_${eggTaps}_${isEggWobbling}_${spritePosX}_${spriteDireccion}_${db.lastAiResponse}`;
     if (db.lastStageCheck === uiCheckKey) {
         actualizarFilaIconos();
@@ -103,32 +112,32 @@ function renderUI() {
             <style>
                 @keyframes egg-shake {
                     0% { transform: translateX(0) rotate(0deg); }
-                    25% { transform: translateX(-3px) rotate(-6deg); }
-                    75% { transform: translateX(3px) rotate(6deg); }
+                    25% { transform: translateX(-6px) rotate(-8deg); }
+                    75% { transform: translateX(6px) rotate(8deg); }
                     100% { transform: translateX(0) rotate(0deg); }
                 }
             </style>
-            <div class="menu-title">ELIGE TU HUEVO</div>
-            <div style="display:inline-block; ${wobbleAnimation}">
+            <div class="menu-title" style="margin-top: 10px;">ELIGE TU HUEVO</div>
+            <div style="display:inline-block; margin: 20px 0; ${wobbleAnimation}">
                 ${getAnimatedSprite('yukimibotamon', 'idle')}
             </div>
-            <div class="menu-list" style="font-size:11px; margin-top:4px; line-height: 14px;">
-                ${eggTaps > 0 ? `¡Se está moviendo!<br>Grietas: ${eggTaps}/5` : '[Pulsa PTT para incubar]'}
+            <div class="menu-list" style="font-size:1.1rem; margin-top:15px; font-weight: bold;">
+                ${eggTaps > 0 ? `¡Se está moviendo!<br>Grietas: ${eggTaps}/5` : '[Haz CLIC o PTT para incubar]'}
             </div>
         `;
     }
     else if (db.phase === 'SLEEP') {
         view.innerHTML = `
-            <div class="menu-title">Zzz... Zzz...</div>
+            <div class="menu-title" style="margin-top: 20px;">Zzz... Zzz...</div>
             ${getAnimatedSprite(db.stage, 'sleep')}
-            <div class="menu-list" style="font-size:10px; margin-top:6px; color:#555;">[Cualquier botón despierta]</div>
+            <div class="menu-list" style="font-size:1rem; margin-top:20px; color:#333;">[Cualquier botón despierta]</div>
         `;
     }
     else if (db.stage === 'muerto') {
         view.innerHTML = `
-            <div class="menu-title">CONEXIÓN PERDIDA</div>
+            <div class="menu-title" style="margin-top: 20px; color: #a00;">CONEXIÓN PERDIDA</div>
             ${getAnimatedSprite('yukimibotamon', 'hurt')}
-            <div class="menu-list" style="font-size:11px; margin-top:4px;">[PTT para Reiniciar]</div>
+            <div class="menu-list" style="font-size:1.1rem; margin-top:15px;">[Clic o PTT para Reiniciar]</div>
         `;
     }
     else if (db.phase === 'MAIN') {
@@ -136,15 +145,15 @@ function renderUI() {
         view.innerHTML = `
             <div class="menu-title">LV.${db.level} ${currentData.nombre}</div>
             ${getAnimatedSprite(db.stage, animState)}
-            <div style="font-size:11px; height:14px; margin-top:2px;">${poopDisplay}</div>
+            <div style="font-size:1.5rem; height:30px; margin-top:10px;">${poopDisplay}</div>
         `;
     } 
     else if (db.phase === 'EXPEDITION') {
         view.innerHTML = `
             <div class="menu-title">⚔️ EXPEDICIÓN ⚔️</div>
-            <div class="menu-list" style="text-align:left; width:85%; margin-top:10px;">
-                ${subMenuIndex === 0 ? '👉 BUSCAR COMBATE' : '    BUSCAR COMBATE'}<br>
-                ${subMenuIndex === 1 ? '👉 ENTRENAR' : '    ENTRENAR'}<br>
+            <div class="menu-list" style="text-align:left; width:75%; margin: 20px auto; font-size: 1.3rem;">
+                ${subMenuIndex === 0 ? '👉 BUSCAR COMBATE' : '    BUSCAR COMBATE'}<br><br>
+                ${subMenuIndex === 1 ? '👉 ENTRENAR' : '    ENTRENAR'}<br><br>
                 ${subMenuIndex === 2 ? '👉 VOLVER' : '    VOLVER'}
             </div>
         `;
@@ -152,62 +161,60 @@ function renderUI() {
     else if (db.phase === 'SHOP') {
         view.innerHTML = `
             <div class="menu-title">🛒 TIENDA (${db.coins}C)</div>
-            <div class="menu-list" style="text-align:left; width:85%; margin-top:10px;">
-                ${subMenuIndex === 0 ? '👉 SUPER MEAT (4C)' : '    SUPER MEAT (4C)'}<br>
-                ${subMenuIndex === 1 ? '👉 MEDICINA (8C)' : '    MEDICINA (8C)'}<br>
+            <div class="menu-list" style="text-align:left; width:80%; margin: 20px auto; font-size: 1.2rem;">
+                ${subMenuIndex === 0 ? '👉 SUPER MEAT (4C)' : '    SUPER MEAT (4C)'}<br><br>
+                ${subMenuIndex === 1 ? '👉 MEDICINA (8C)' : '    MEDICINA (8C)'}<br><br>
                 ${subMenuIndex === 2 ? '👉 VOLVER' : '    VOLVER'}
             </div>
         `;
     }
     else if (db.phase === 'MENU_EXEC') {
         view.innerHTML = `
-            <div class="menu-title">PROCESANDO...</div>
-            <div style="font-size:2.5rem; margin: 15px 0; animation: spin 1.5s infinite linear;">⚙️</div>
+            <div class="menu-title" style="margin-top: 40px;">PROCESANDO...</div>
+            <div style="font-size:4rem; margin: 30px 0; animation: spin 1.5s infinite linear;">⚙️</div>
         `;
     }
     else if (db.phase === 'KEYBOARD') {
         view.innerHTML = `
             <div class="menu-title">TERMINAL DIGITAL</div>
-            <div style="margin: 6px 0;">
+            <div style="margin: 10px 0;">
                 ${getAnimatedSprite(db.stage, 'idle')}
             </div>
-            <form id="ai-form" style="width: 95%; display: flex; gap: 4px; margin: 0 auto;" onsubmit="enviarMensajeAI(event)">
+            <form id="ai-form" style="width: 90%; display: flex; gap: 8px; margin: 10px auto;" onsubmit="enviarMensajeAI(event)">
                 <input 
                     type="text" 
                     id="ai-input" 
                     placeholder="Toca para escribir..." 
                     autocomplete="off"
                     maxlength="50"
-                    style="flex: 1; background: #111; color: #8b9d77; border: 2px solid #222; padding: 6px 8px; font-family: 'Courier New', monospace; font-size: 0.8rem; border-radius: 4px; outline: none; box-shadow: inset 0 0 5px rgba(0,0,0,0.8);"
+                    style="flex: 1; background: #111; color: #8b9d77; border: 3px solid #222; padding: 10px; font-family: 'Courier New', monospace; font-size: 1.1rem; border-radius: 6px; outline: none; box-shadow: inset 0 0 5px rgba(0,0,0,0.8);"
                 >
-                <button type="submit" style="background: #222; color: #8b9d77; border: 1px solid #444; padding: 0 10px; font-weight: bold; border-radius: 4px; cursor: pointer;">✔</button>
+                <button type="submit" style="background: #222; color: #8b9d77; border: 2px solid #444; padding: 0 15px; font-size: 1.2rem; font-weight: bold; border-radius: 6px; cursor: pointer;">✔</button>
             </form>
-            <div style="font-size: 0.65rem; color: #333; margin-top: 8px;">[PTT o Enter para salir]</div>
+            <div style="font-size: 0.9rem; color: #333; margin-top: 10px;">[PTT o Enter para salir]</div>
         `;
         setTimeout(() => {
             const input = document.getElementById('ai-input');
             if (input) input.focus();
         }, 150);
     }
-    // CORRECCIÓN: Pantalla de carga mientras el modelo piensa
     else if (db.phase === 'COMMS_THINKING') {
         view.innerHTML = `
-            <div class="menu-title">TERMINAL DIGITAL</div>
-            <div style="font-size:2rem; margin: 15px 0; animation: spin 1.5s infinite linear;">📡</div>
-            <div class="menu-list" style="font-size:10px; color:#333;">[Conectando con el Digimundo...]</div>
+            <div class="menu-title" style="margin-top: 30px;">TERMINAL DIGITAL</div>
+            <div style="font-size:4rem; margin: 30px 0; animation: spin 1.5s infinite linear;">📡</div>
+            <div class="menu-list" style="font-size:1.1rem; color:#333;">[Conectando con el Digimundo...]</div>
         `;
     }
-    // CORRECCIÓN: Pantalla para mostrar la respuesta del Digimon
     else if (db.phase === 'COMMS_RESPONSE') {
         view.innerHTML = `
             <div class="menu-title">${currentData.nombre.toUpperCase()} DICE:</div>
-            <div style="margin: 2px 0;">
+            <div style="margin: 5px 0;">
                 ${getAnimatedSprite(db.stage, 'happy')}
             </div>
-            <div style="font-size: 0.75rem; background: #111; color: #8b9d77; padding: 6px; border-radius: 4px; width: 95%; max-height: 65px; overflow-y: auto; margin: 0 auto; line-height: 1.2; text-align: left; box-shadow: inset 0 0 5px rgba(0,0,0,0.8);">
+            <div style="font-size: 1.1rem; background: #111; color: #8b9d77; padding: 12px; border-radius: 8px; width: 90%; max-height: 110px; overflow-y: auto; margin: 10px auto; line-height: 1.4; text-align: left; box-shadow: inset 0 0 8px rgba(0,0,0,0.8);">
                 "${db.lastAiResponse || '...'}"
             </div>
-            <div style="font-size: 0.65rem; color: #333; margin-top: 4px;">[Pulsa PTT para salir]</div>
+            <div style="font-size: 0.9rem; color: #333; margin-top: 10px;">[Clic o PTT para salir]</div>
         `;
     }
     
@@ -215,7 +222,6 @@ function renderUI() {
 }
 
 function actualizarFilaIconos() {
-    // CORRECCIÓN: Ajustado al nuevo límite de 7 iconos
     for (let i = 0; i < 7; i++) {
         const icon = document.getElementById(`icon-${i}`);
         if (!icon) continue;
@@ -240,22 +246,31 @@ function comprobarDespertar() {
 // --- 3. LÓGICA DE NAVEGACIÓN Y ACCIONES ---
 window.moveNext = function() {
     if (comprobarDespertar()) return;
-    if (db.phase === 'MAIN') currentIconIndex = (currentIconIndex + 1) % 7; // Modulo 7
+    if (db.phase === 'MAIN') currentIconIndex = (currentIconIndex + 1) % 7; 
     else if (db.phase === 'EXPEDITION' || db.phase === 'SHOP') subMenuIndex = (subMenuIndex + 1) % 3;
     renderUI();
 };
 
 window.movePrev = function() {
     if (comprobarDespertar()) return;
-    if (db.phase === 'MAIN') currentIconIndex = (currentIconIndex - 1 + 7) % 7; // Modulo 7
+    if (db.phase === 'MAIN') currentIconIndex = (currentIconIndex - 1 + 7) % 7; 
     else if (db.phase === 'EXPEDITION' || db.phase === 'SHOP') subMenuIndex = (subMenuIndex - 1 + 3) % 3;
     renderUI();
+};
+
+// NUEVA FUNCIÓN: Permite tocar con el ratón o el dedo directamente los iconos
+window.seleccionarYEjecutar = function(index) {
+    if (comprobarDespertar()) return;
+    if (db.phase === 'MAIN') {
+        currentIconIndex = index;
+        renderUI();
+        window.ejecutarAccionFisica();
+    }
 };
 
 window.ejecutarAccionFisica = function() {
     if (comprobarDespertar()) return;
 
-    // CORRECCIÓN: Permitir salir de pantallas de IA con el botón PTT
     if (db.phase === 'KEYBOARD' || db.phase === 'COMMS_RESPONSE' || db.phase === 'COMMS_THINKING') {
         db.phase = 'MAIN';
         db.lastStageCheck = '';
@@ -433,7 +448,7 @@ function llamarModeloRabbit(systemPrompt, mensajeUsuario) {
 }
 
 async function consultarDigimonAI(mensajeUsuario, idDigimon) {
-    const digi = ROSTER[idDigimon] || ROSTER['yukimibotamon'];
+    let digi = (typeof ROSTER !== 'undefined' && ROSTER[idDigimon]) ? ROSTER[idDigimon] : { nombre: 'Digimon' };
     
     const systemPrompt = `
         Eres un Digimon llamado ${digi.nombre}. Estás dentro de un dispositivo Digivice.
@@ -454,7 +469,7 @@ async function consultarDigimonAI(mensajeUsuario, idDigimon) {
         let respuestaAI = await llamarModeloRabbit(systemPrompt, mensajeUsuario);
         db.phase = 'COMMS_RESPONSE';
         db.lastAiResponse = respuestaAI; 
-        db.lastStageCheck = ''; // Fuerza repintado en la nueva pantalla
+        db.lastStageCheck = ''; 
         renderUI();
         return respuestaAI;
     } catch (error) {
@@ -474,7 +489,7 @@ window.enviarMensajeAI = function(event) {
     
     if (mensaje.length > 0) {
         db.phase = 'COMMS_THINKING';
-        db.lastStageCheck = ''; // Fuerza el renderizado de la pantalla de carga
+        db.lastStageCheck = ''; 
         renderUI();
         consultarDigimonAI(mensaje, db.stage);
     }
@@ -482,7 +497,6 @@ window.enviarMensajeAI = function(event) {
 
 // --- 5. BUCLES DE JUEGO E INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
-    // --- BUCLE DE DEAMBULEO RETRO (Cada 600ms) ---
     setInterval(() => {
         if (db.phase !== 'MAIN' || db.isSick || db.hunger >= 3 || db.poop > 0 || db.stage === 'muerto') return;
 
@@ -502,7 +516,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderUI(); 
     }, 600);
 
-    // --- BUCLE VITAL (Cada 2 minutos) ---
     setInterval(() => {
         if (db.phase === 'HATCHING' || db.stage === 'muerto') return;
         
