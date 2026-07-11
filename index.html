@@ -27,26 +27,19 @@
         }
 
         .digivice-frame {
-            /* Eliminamos el gradiente y ponemos la imagen */
             background-image: url('https://raw.githubusercontent.com/core-zer0/DigipetR1/refs/heads/main/sprites/digivice-shell.png');
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
-            
-            /* Quitamos el borde y box-shadow genérico porque la imagen ya los trae */
             border: none; 
             box-shadow: none;
-            
-            /* Ajustamos el tamaño al de tu imagen original */
             width: 1000px;
             height: 1000px;
-            
-            /* IMPORTANTE: Ajusta el padding para que la pantalla LCD 
-               encaje perfectamente dentro del "hueco" de tu imagen PNG */
-            padding-top: 228px;  /* Ajusta según tu imagen */
-            padding-bottom: 261px; /* Ajusta según tu imagen */
+            padding-top: 228px;
+            padding-bottom: 261px;
             padding-left: 257px;
             padding-right: 232px;
+            position: relative;
         }
 
         .digivice-frame::before {
@@ -82,10 +75,9 @@
             left: 0;
             width: 100%;
             height: 100%;
-            /* Crea líneas horizontales semi-transparentes */
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
-            background-size: 100% 4px; /* Ajusta este valor para cambiar el grosor de la línea */
-            pointer-events: none; /* Crucial: para que puedas seguir pulsando los botones */
+            background-size: 100% 4px;
+            pointer-events: none; /* Crucial: permite tocar el teclado de debajo */
             z-index: 10;
         }
 
@@ -115,24 +107,18 @@
             to { opacity: 1; }
         }
 
-        /* --- SISTEMA DE RENDERIZADO GRID CORREGIDO --- */
         .sprite-grid-render {
             display: inline-block;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
             margin: 20px 0;
-            
             width: calc(var(--w) * 1px);
             height: calc(var(--h) * 1px);
             background-image: var(--sheet-url);
             background-size: var(--sheet-w) var(--sheet-h);
             background-repeat: no-repeat;
-
-            /* Cálculo estricto de coordenadas esquivando el píxel de rejilla */
             --start-x: calc(var(--offset-x) + (var(--col) * (var(--w) + 1)));
             --start-y: calc(var(--offset-y) + (var(--row) * (var(--h) + 1)));
-            
-            /* Posición estática por defecto (Vital para frames únicos como Hurt o Sad) */
             background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px);
         }
 
@@ -140,7 +126,6 @@
             from { background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px); }
             to { background-position: calc((var(--start-x) + (var(--frames) * (var(--w) + 1))) * -1px) calc(var(--start-y) * -1px); }
         }
-        /* ------------------------------------------- */
 
         .action-menu {
             display: flex;
@@ -153,7 +138,7 @@
         .menu-icon {
             font-size: 1.1rem;
             opacity: 0.25;
-            padding: 2px 5px;
+            padding: 2px 4px;
             border-radius: 4px;
             transition: opacity 0.2s;
         }
@@ -189,9 +174,10 @@
                 <span class="menu-icon" id="icon-0">🍖</span>
                 <span class="menu-icon" id="icon-1">⚔️</span>
                 <span class="menu-icon" id="icon-2">🛒</span>
-                <span class="menu-icon" id="icon-3">💤</span>
-                <span class="menu-icon" id="icon-4">🧹</span>
-                <span class="menu-icon" id="icon-5">💊</span>
+                <span class="menu-icon" id="icon-3">💬</span>
+                <span class="menu-icon" id="icon-4">💤</span>
+                <span class="menu-icon" id="icon-5">🧹</span>
+                <span class="menu-icon" id="icon-6">💊</span>
             </div>
         </div>
     </div>
