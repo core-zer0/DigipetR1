@@ -40,7 +40,7 @@ function getAnimatedSprite(id, state = 'idle') {
         : ``;
 
     let flipX = spriteDireccion === 1 ? -1 : 1;
-    let scaleFactor = 5;
+    let scaleFactor = 8;
     let transformValue = `scale(${scaleFactor}) scaleX(${flipX})`;
 
     let posicionEstilo = (db.phase === 'MAIN' && state === 'idle')
