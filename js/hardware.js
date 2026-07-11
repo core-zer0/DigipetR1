@@ -2,7 +2,7 @@
 
 /**
  * R1 Creations - Hardware Controller para Digivice
- * Conecta los eventos físicos del Rabbit R1 (y emuladores de PC/ratón)
+ * Conecta los eventos físicos del Rabbit R1 (y emuladores de PC)
  * con las funciones de navegación globales del juego.
  */
 
@@ -22,29 +22,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.ejecutarAccionFisica === 'function') window.ejecutarAccionFisica();
     });
 
-    // 2. Teclado ampliado para PC (Soporta Flechas, WASD, Espacio y Enter)
-    const handleKeyDown = (event) => {
-        // Evitamos capturar teclas si el usuario está escribiendo un mensaje a la IA
+    // 2. Emulador de Teclado y Rueda de Ratón para Pruebas en PC
+    window.addEventListener('keydown', (event) => {
+        // Evitamos capturar el teclado si el usuario está escribiendo un mensaje a la IA
         if (document.activeElement && document.activeElement.id === 'ai-input') return;
 
-        const key = event.key.toLowerCase();
-
-        if (key === 'arrowdown' || key === 'arrowright' || key === 's' || key === 'd') {
-            event.preventDefault();
+        if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
             if (typeof window.moveNext === 'function') window.moveNext();
-        } else if (key === 'arrowup' || key === 'arrowleft' || key === 'w' || key === 'a') {
-            event.preventDefault();
+        } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
             if (typeof window.movePrev === 'function') window.movePrev();
-        } else if (key === 'enter' || key === ' ' || key === 'e') {
-            event.preventDefault();
+        } else if (event.key === 'Enter' || event.key === ' ') {
             if (typeof window.ejecutarAccionFisica === 'function') window.ejecutarAccionFisica();
         }
-    };
+    }, { capture: true });
 
-    window.addEventListener('keydown', handleKeyDown, { capture: true });
-    document.addEventListener('keydown', handleKeyDown, { capture: true });
-
-    // 3. Rueda del ratón en PC
     window.addEventListener('wheel', (event) => {
         if (event.deltaY > 0) {
             if (typeof window.moveNext === 'function') window.moveNext();
