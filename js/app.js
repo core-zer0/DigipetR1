@@ -89,6 +89,7 @@ function renderUI() {
     let emoteEnergia = db.energy <= 1 ? '🪫' : '🔋';
     let emoteSalud = db.isSick ? '🤢' : (db.poop > 0 ? '💩' : '✨');
     statusBar.innerText = `${currentData.nombre.toUpperCase()} ${emoteHambre} ${emoteEnergia} ${emoteSalud}`;
+
     
     if (db.phase === 'SLEEP') {
         view.style.filter = 'brightness(0.35) contrast(1.2)';
@@ -96,8 +97,11 @@ function renderUI() {
         view.style.filter = 'none';
     }
 
-    // CORRECCIÓN CRÍTICA: Añadidos spritePosX, spriteDireccion y lastAiResponse al check
-    let uiCheckKey = `${db.phase}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}_${eggTaps}_${isEggWobbling}_${spritePosX}_${spriteDireccion}_${db.lastAiResponse}`;
+// CORRECCIÓN: Se añade el estado de combate al check para que la pantalla se actualice al recibir daño
+
+    let combatKey = db.phase === 'COMBAT' ? `_${combatState.playerHp}_${combatState.enemyHp}_${combatState.subPhase}_${combatState.message}` : '';
+    let uiCheckKey = `${db.phase}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}_${eggTaps}_${isEggWobbling}_${spritePosX}_${spriteDireccion}_${db.lastAiResponse}${combatKey}`;
+   
     if (db.lastStageCheck === uiCheckKey) {
         actualizarFilaIconos();
         return;
@@ -282,7 +286,6 @@ window.moveNext = function() {
     else if (db.phase === 'EXPEDITION' || db.phase === 'SHOP') subMenuIndex = (subMenuIndex + 1) % 3;
     else if (db.phase === 'COMBAT' && combatState.subPhase === 'SELECT') subMenuIndex = (subMenuIndex + 1) % 2; // Atacar o Esquivar
     renderUI();
-    renderUI();
 };
 
 window.movePrev = function() {
@@ -347,7 +350,7 @@ window.ejecutarAccionFisica = function() {
         }
         return;
     }
-    
+
     if (db.phase === 'EXPEDITION') {
         if (subMenuIndex === 0) ejecutarCombate();
         else if (subMenuIndex === 1) ejecutarEntrenamiento();
@@ -478,9 +481,15 @@ function ejecutarTurnoCombate(accionSeleccionada) {
             let danoEnemigo = Math.floor(Math.random() * 3) + 2;
             combatState.playerHp = Math.max(0, combatState.playerHp - danoEnemigo);
             combatState.message = `¡RECIBES DAÑO! -${danoEnemigo} HP.`;
+            combatState.playerAction = 1; // Hace que el sprite del enemigo muestre animación de ataque
         } else {
             combatState.message = accionSeleccionada === 1 ? `¡ESQUIVADA PERFECTA!` : `¡RIVAL FALLÓ!`;
+            combatState.playerAction = 0;
         }
+
+        // CORRECCIÓN CRÍTICA: Forzar renderizado para mostrar el contraataque y el daño en la barra LCD
+        db.lastStageCheck = '';
+        renderUI();
 
         // Comprobar derrota o volver a menú de selección
         setTimeout(() => {
@@ -495,7 +504,7 @@ function ejecutarTurnoCombate(accionSeleccionada) {
             }
             db.lastStageCheck = '';
             renderUI();
-        }, 1200);
+        }, 1400);
 
     }, 1500);
 }
