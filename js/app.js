@@ -15,6 +15,16 @@ if (db.phase === 'MENU_EXEC' || db.phase === 'COMMS_THINKING') {
 
 let eggTaps = 0;
 let isEggWobbling = false;
+let combatState = {
+    enemyId: 'goblimon',
+    playerHp: 10,
+    playerMaxHp: 10,
+    enemyHp: 10,
+    enemyMaxHp: 10,
+    subPhase: 'SELECT', // 'SELECT', 'ANIMATING', 'END'
+    message: '¡ENEMIGO SALVAJE!',
+    playerAction: 0 // 0: Atacar, 1: Esquivar
+};
 
 if (typeof ROSTER !== 'undefined' && !ROSTER[db.stage]) {
     db.stage = 'yukimibotamon';
@@ -31,7 +41,8 @@ function guardarJuego() {
 }
 
 // --- 2. FUNCIONES DE RENDERIZADO VISUAL ---
-function getAnimatedSprite(id, state = 'idle') {
+
+function getAnimatedSprite(id, state = 'idle', forceFlip = null) {
     let digi = ROSTER[id] || ROSTER['yukimibotamon'];
     let animConfig = ANIMATIONS[state] || ANIMATIONS['idle'];
     
@@ -39,11 +50,12 @@ function getAnimatedSprite(id, state = 'idle') {
         ? `animation: play-anim 0.8s steps(${animConfig.frames}) infinite;`
         : ``;
 
-    let flipX = spriteDireccion === 1 ? -1 : 1;
+    // Si forceFlip es null, usa la dirección del deambuleo; si no, fuerza la orientación (-1 derecha, 1 izquierda)
+    let flipX = forceFlip !== null ? forceFlip : (spriteDireccion === 1 ? -1 : 1);
     let scaleFactor = 8;
     let transformValue = `scale(${scaleFactor}) scaleX(${flipX})`;
 
-    let posicionEstilo = (db.phase === 'MAIN' && state === 'idle')
+    let posicionEstilo = (db.phase === 'MAIN' && state === 'idle' && forceFlip === null)
         ? `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) ${transformValue}; top: 55%;`
         : `transform: ${transformValue};`;
 
@@ -159,6 +171,32 @@ function renderUI() {
             </div>
         `;
     }
+    else if (db.phase === 'COMBAT') {
+        let enemyData = ROSTER[combatState.enemyId] || ROSTER['agumon'];
+        let playerAnim = combatState.subPhase === 'ANIMATING' && combatState.playerAction === 0 ? 'attack' : 'idle';
+        let enemyAnim = combatState.subPhase === 'ANIMATING' && combatState.playerAction === 1 ? 'attack' : 'idle';
+
+        view.innerHTML = `
+            <div class="menu-title" style="font-size:10px;">⚔️ VS ${enemyData.nombre.toUpperCase()} ⚔️</div>
+            <div style="display: flex; justify-content: space-around; align-items: center; height: 55px; margin: 2px 0;">
+                <div style="width: 45%;">${getAnimatedSprite(db.stage, playerAnim, -1)}</div>
+                <div style="font-size: 10px; font-weight: bold; color: #333;">VS</div>
+                <div style="width: 45%;">${getAnimatedSprite(combatState.enemyId, enemyAnim, 1)}</div>
+            </div>
+            <div style="font-size: 9px; background: #111; color: #8b9d77; padding: 2px 4px; border-radius: 2px; margin-bottom: 4px; display: flex; justify-content: space-between;">
+                <span>TÚ: ${combatState.playerHp}/${combatState.playerMaxHp}</span>
+                <span>RIVAL: ${combatState.enemyHp}/${combatState.enemyMaxHp}</span>
+            </div>
+            <div class="menu-list" style="font-size: 10px; min-height: 14px; margin-bottom: 4px;">
+                ${combatState.message}
+            </div>
+            ${combatState.subPhase === 'SELECT' ? `
+            <div class="menu-list" style="font-size: 10px; display: flex; justify-content: center; gap: 10px;">
+                <span style="${subMenuIndex === 0 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 ATACAR</span>
+                <span style="${subMenuIndex === 1 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 ESQUIVAR</span>
+            </div>` : ''}
+        `;
+    }
     else if (db.phase === 'MENU_EXEC') {
         view.innerHTML = `
             <div class="menu-title">PROCESANDO...</div>
@@ -242,6 +280,8 @@ window.moveNext = function() {
     if (comprobarDespertar()) return;
     if (db.phase === 'MAIN') currentIconIndex = (currentIconIndex + 1) % 7; // Modulo 7
     else if (db.phase === 'EXPEDITION' || db.phase === 'SHOP') subMenuIndex = (subMenuIndex + 1) % 3;
+    else if (db.phase === 'COMBAT' && combatState.subPhase === 'SELECT') subMenuIndex = (subMenuIndex + 1) % 2; // Atacar o Esquivar
+    renderUI();
     renderUI();
 };
 
@@ -249,6 +289,7 @@ window.movePrev = function() {
     if (comprobarDespertar()) return;
     if (db.phase === 'MAIN') currentIconIndex = (currentIconIndex - 1 + 7) % 7; // Modulo 7
     else if (db.phase === 'EXPEDITION' || db.phase === 'SHOP') subMenuIndex = (subMenuIndex - 1 + 3) % 3;
+    else if (db.phase === 'COMBAT' && combatState.subPhase === 'SELECT') subMenuIndex = (subMenuIndex - 1 + 2) % 2;
     renderUI();
 };
 
@@ -295,6 +336,18 @@ window.ejecutarAccionFisica = function() {
         return;
     }
 
+    if (db.phase === 'COMBAT') {
+        if (combatState.subPhase === 'SELECT') {
+            ejecutarTurnoCombate(subMenuIndex);
+        } else if (combatState.subPhase === 'END') {
+            db.phase = 'MAIN';
+            db.lastStageCheck = '';
+            guardarJuego();
+            renderUI();
+        }
+        return;
+    }
+    
     if (db.phase === 'EXPEDITION') {
         if (subMenuIndex === 0) ejecutarCombate();
         else if (subMenuIndex === 1) ejecutarEntrenamiento();
@@ -358,15 +411,92 @@ function ejecutarEntrenamiento() {
 
 function ejecutarCombate() {
     if (db.energy === 0) { db.phase = 'MAIN'; renderUI(); return; }
-    db.phase = 'MENU_EXEC';
+    
+    // Gastar energía al iniciar y seleccionar enemigo aleatorio
+    db.energy = Math.max(0, db.energy - 1);
+    const enemigosDisponibles = Object.keys(ROSTER).filter(id => id !== 'yukimibotamon' && id !== 'nyaromon' && id !== 'muerto');
+    const enemigoAleatorio = enemigosDisponibles[Math.floor(Math.random() * enemigosDisponibles.length)] || 'agumon';
+
+    // Inicializar el estado de la batalla
+    let maxHp = 10 + (db.level * 2);
+    combatState = {
+        enemyId: enemigoAleatorio,
+        playerHp: maxHp,
+        playerMaxHp: maxHp,
+        enemyHp: maxHp,
+        enemyMaxHp: maxHp,
+        subPhase: 'SELECT',
+        message: '¡PULSA ACCIÓN PARA LUCHAR!',
+        playerAction: 0
+    };
+
+    subMenuIndex = 0;
+    db.phase = 'COMBAT';
+    db.lastStageCheck = '';
     renderUI();
+}
+
+function ejecutarTurnoCombate(accionSeleccionada) {
+    combatState.subPhase = 'ANIMATING';
+    combatState.playerAction = accionSeleccionada;
+    
+    // 1. Turno del Jugador
+    if (accionSeleccionada === 0) { // ATACAR
+        let probAcierto = 0.7 + (db.level * 0.05);
+        if (Math.random() < probAcierto) {
+            let dano = Math.floor(Math.random() * 3) + 3; // 3 a 5 de daño
+            combatState.enemyHp = Math.max(0, combatState.enemyHp - dano);
+            combatState.message = `¡HIT! Haces ${dano} de daño.`;
+        } else {
+            combatState.message = `¡FALLASTE EL ATAQUE!`;
+        }
+    } else { // ESQUIVAR (Prepara postura defensiva)
+        combatState.message = `¡ADOPTAS POSTURA DEFENSIVA!`;
+    }
+    
+    db.lastStageCheck = '';
+    renderUI();
+
+    // Comprobar victoria antes del contraataque
+    if (combatState.enemyHp <= 0) {
+        setTimeout(() => {
+            combatState.subPhase = 'END';
+            combatState.message = `¡VICTORIA! +6C y +1 LVL [PTT: Salir]`;
+            db.coins += 6;
+            db.level++;
+            db.lastStageCheck = '';
+            renderUI();
+        }, 1200);
+        return;
+    }
+
+    // 2. Turno del Enemigo (Contraataque después de 1.5 segundos)
     setTimeout(() => {
-        if (Math.random() > 0.4) { db.coins += 6; db.level++; } 
-        else { db.energy = Math.max(0, db.energy - 2); db.careMistakes++; }
-        db.phase = 'MAIN';
-        db.lastStageCheck = '';
-        guardarJuego();
-        renderUI();
+        let probAciertoEnemigo = accionSeleccionada === 1 ? 0.2 : 0.6; // Esquivar reduce mucho su acierto
+        
+        if (Math.random() < probAciertoEnemigo) {
+            let danoEnemigo = Math.floor(Math.random() * 3) + 2;
+            combatState.playerHp = Math.max(0, combatState.playerHp - danoEnemigo);
+            combatState.message = `¡RECIBES DAÑO! -${danoEnemigo} HP.`;
+        } else {
+            combatState.message = accionSeleccionada === 1 ? `¡ESQUIVADA PERFECTA!` : `¡RIVAL FALLÓ!`;
+        }
+
+        // Comprobar derrota o volver a menú de selección
+        setTimeout(() => {
+            if (combatState.playerHp <= 0) {
+                combatState.subPhase = 'END';
+                combatState.message = `¡DERROTA! Pierdes energía [PTT: Salir]`;
+                db.energy = Math.max(0, db.energy - 1);
+                db.careMistakes++;
+            } else {
+                combatState.subPhase = 'SELECT';
+                combatState.message = `¿QUÉ HARÁS AHORA?`;
+            }
+            db.lastStageCheck = '';
+            renderUI();
+        }, 1200);
+
     }, 1500);
 }
 
