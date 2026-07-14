@@ -92,21 +92,37 @@ function getAnimatedSprite(id, state = 'idle', forceFlip = null) {
         ? `animation: play-anim 0.8s steps(${animConfig.frames}) infinite;` : ``;
 
     let flipX = forceFlip !== null ? forceFlip : (spriteDireccion === 1 ? -1 : 1);
-    let scaleFactor = 8;
+    
+    // Escala 5 en combate para que sprites altos no superen los 100px de la caja
+    let scaleFactor = fsm.state === 'COMBAT' ? 8 : 10;
     let transformValue = `scale(${scaleFactor}) scaleX(${flipX})`;
 
-    let posicionEstilo = (fsm.state === 'MAIN' && state === 'idle' && forceFlip === null)
-        ? `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) ${transformValue}; top: 55%;`
-        : `transform: ${transformValue};`;
+    let posicionEstilo = '';
+    let transformOrigin = '';
 
-    return `<div style="display: flex; justify-content: center; align-items: center; height: 60px; width: 100%; position: relative;">
+    if (fsm.state === 'MAIN' && state === 'idle' && forceFlip === null) {
+        posicionEstilo = `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) ${transformValue}; top: 55%;`;
+        transformOrigin = 'transform-origin: center center;';
+    } else if (fsm.state === 'COMBAT') {
+        posicionEstilo = `position: relative; transform: ${transformValue};`;
+        transformOrigin = 'transform-origin: bottom center;';
+    } else {
+        posicionEstilo = `position: relative; transform: ${transformValue};`;
+        transformOrigin = 'transform-origin: center center;';
+    }
+
+    let wrapperHeight = fsm.state === 'COMBAT' ? '100%' : '150px';
+    let wrapperAlign = fsm.state === 'COMBAT' ? 'flex-end' : 'center';
+
+    // Fíjate cómo ahora sí usamos ${wrapperAlign}, ${wrapperHeight} y ${transformOrigin}
+    return `<div style="display: flex; justify-content: center; align-items: ${wrapperAlign}; height: ${wrapperHeight}; width: 100%; position: relative;">
             <div class="sprite-grid-render" style="
                 --sheet-url: url('${SHEET_CONFIG.url}'); 
                 --offset-x: ${SHEET_CONFIG.startX}; --offset-y: ${SHEET_CONFIG.startY};
                 --w: ${SHEET_CONFIG.w}; --h: ${SHEET_CONFIG.h}; 
                 --sheet-w: ${SHEET_CONFIG.sheetW}px; --sheet-h: ${SHEET_CONFIG.sheetH}px;
                 --row: ${digi.row}; --col: ${animConfig.col}; --frames: ${animConfig.frames};
-                --transform: ${transformValue}; ${posicionEstilo} ${inlineStyle}
+                --transform: ${transformValue}; ${posicionEstilo} ${transformOrigin} ${inlineStyle}
             "></div></div>`;
 }
 
@@ -197,28 +213,57 @@ function renderUI() {
             break;
 
         case 'COMBAT':
-            let enemyData = ROSTER[combatState.enemyId] || ROSTER['agumon'];
-            let playerAnim = combatState.subPhase === 'ANIMATING' && combatState.playerAction === 0 ? 'attack' : 'idle';
-            let enemyAnim = combatState.subPhase === 'ANIMATING' && combatState.playerAction === 1 ? 'attack' : 'idle';
-            view.innerHTML = `
-                <div class="menu-title" style="font-size:10px;">⚔️ VS ${enemyData.nombre.toUpperCase()} ⚔️</div>
-                <div style="display: flex; justify-content: space-around; align-items: center; height: 50px; margin: 2px 0;">
-                    <div style="width: 45%;">${getAnimatedSprite(db.stage, playerAnim, -1)}</div>
-                    <div style="font-size: 10px; font-weight: bold; color: #333;">VS</div>
-                    <div style="width: 45%;">${getAnimatedSprite(combatState.enemyId, enemyAnim, 1)}</div>
-                </div>
-                <div style="font-size: 9px; background: #111; color: #8b9d77; padding: 2px 4px; border-radius: 2px; margin-bottom: 2px; display: flex; justify-content: space-between;">
-                    <span>TÚ: ${combatState.playerHp}/${combatState.playerMaxHp}</span>
-                    <span>RIVAL: ${combatState.enemyHp}/${combatState.enemyMaxHp}</span>
-                </div>
-                <div class="menu-list" style="font-size: 9px; min-height: 14px; margin-bottom: 4px;">${combatState.message}</div>
-                ${combatState.subPhase === 'SELECT' ? `
-                <div class="menu-list" style="font-size: 9px; display: flex; justify-content: center; gap: 8px;">
-                    <span style="${subMenuIndex === 0 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 ATQ</span>
-                    <span style="${subMenuIndex === 1 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 VEL</span>
-                    <span style="${subMenuIndex === 2 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 DEF</span>
-                </div>` : ''}`;
-            break;
+                    let enemyData = ROSTER[combatState.enemyId] || ROSTER['agumon'];
+                    let isAnimating = combatState.subPhase === 'ANIMATING';
+                    
+                    // Si hay animación, el atacante ejecuta 'attack' y el que recibe el golpe ejecuta 'hurt'
+                    let playerAnim = (isAnimating && combatState.attacker === 'player') ? 'attack' : ((isAnimating && combatState.attacker === 'enemy') ? 'hurt' : 'idle');
+                    let enemyAnim = (isAnimating && combatState.attacker === 'enemy') ? 'attack' : ((isAnimating && combatState.attacker === 'player') ? 'hurt' : 'idle');
+                    
+                    // Sistema de animación CSS para disparar el emote entre las dos posiciones
+                    let emoteOverlay = '';
+                    if (isAnimating && combatState.actionEmote) {
+                        let fromLeft = combatState.attacker === 'player';
+                        emoteOverlay = `
+                            <style>
+                                @keyframes shootEmote {
+                                    0% { left: ${fromLeft ? '20%' : '80%'}; top: 35%; opacity: 0; transform: scale(0.5); }
+                                    20% { opacity: 1; transform: scale(1.4); }
+                                    80% { left: ${fromLeft ? '80%' : '20%'}; top: 35%; opacity: 1; transform: scale(1.4); }
+                                    100% { left: ${fromLeft ? '85%' : '15%'}; top: 35%; opacity: 0; transform: scale(2) rotate(${fromLeft ? '25deg' : '-25deg'}); }
+                                }
+                            </style>
+                            <div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20;">
+                                <div style="position: absolute; font-size: 20px; animation: shootEmote 1.4s ease-in-out forwards;">
+                                    ${combatState.actionEmote}
+                                </div>
+                            </div>`;
+                    }
+
+                    view.innerHTML = `
+                        <div class="menu-title" style="font-size:10px;">⚔️ VS ${enemyData.nombre.toUpperCase()} ⚔️</div>
+                        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-end; height: 150px; margin: 2px 0; padding-bottom: 4px; position: relative; width: 100%; overflow: hidden;">
+                            ${emoteOverlay}
+                            <div style="width: 42%; height: 100%; display: flex; justify-content: center; align-items: flex-end;">
+                                ${getAnimatedSprite(db.stage, playerAnim, -1)}
+                            </div>
+                            <div style="font-size: 10px; font-weight: bold; color: #333; width: 16%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 5;">VS</div>
+                            <div style="width: 42%; height: 100%; display: flex; justify-content: center; align-items: flex-end;">
+                                ${getAnimatedSprite(combatState.enemyId, enemyAnim, 1)}
+                            </div>
+                        </div>
+                        <div style="font-size: 9px; background: #111; color: #8b9d77; padding: 2px 4px; border-radius: 2px; margin-bottom: 2px; display: flex; justify-content: space-between;">
+                            <span>TÚ: ${combatState.playerHp}/${combatState.playerMaxHp}</span>
+                            <span>RIVAL: ${combatState.enemyHp}/${combatState.enemyMaxHp}</span>
+                        </div>
+                        <div class="menu-list" style="font-size: 9px; min-height: 14px; margin-bottom: 4px;">${combatState.message}</div>
+                        ${combatState.subPhase === 'SELECT' ? `
+                        <div class="menu-list" style="font-size: 9px; display: flex; justify-content: center; gap: 8px;">
+                            <span style="${subMenuIndex === 0 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 ATQ</span>
+                            <span style="${subMenuIndex === 1 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 VEL</span>
+                            <span style="${subMenuIndex === 2 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 DEF</span>
+                        </div>` : ''}`;
+                    break;
 
         case 'MENU_EXEC':
             view.innerHTML = `
@@ -432,6 +477,7 @@ function resolverTurnoCombate(accionJugador) {
     
     const accionRival = Math.floor(Math.random() * 3);
     const nombresAccion = ['ATQ', 'VEL', 'DEF'];
+    const emotesAccion = ['⚔️', '⚡', '🛡️']; // Emotes para cada tipo de ataque
     const statsJugador = ROSTER[db.stage] || ROSTER['agumon'];
     const statsRival = ROSTER[combatState.enemyId] || ROSTER['agumon'];
     
@@ -440,6 +486,20 @@ function resolverTurnoCombate(accionJugador) {
         if ((accionJugador === 0 && accionRival === 2) || (accionJugador === 1 && accionRival === 0) || (accionJugador === 2 && accionRival === 1)) {
             ventaja = 1;
         } else { ventaja = -1; }
+    }
+
+    // Determinamos quién es el atacante activo para lanzar el emote en la dirección correcta
+    if (ventaja === 1) {
+        combatState.attacker = 'player';
+        combatState.actionEmote = emotesAccion[accionJugador];
+    } else if (ventaja === -1) {
+        combatState.attacker = 'enemy';
+        combatState.actionEmote = emotesAccion[accionRival];
+    } else {
+        let statJ = accionJugador === 0 ? statsJugador.atq : (accionJugador === 1 ? statsJugador.vel : statsJugador.def);
+        let statR = accionRival === 0 ? statsRival.atq : (accionRival === 1 ? statsRival.vel : statsRival.def);
+        combatState.attacker = statJ >= statR ? 'player' : 'enemy';
+        combatState.actionEmote = emotesAccion[accionJugador]; // Al ser empate ambos usaron el mismo
     }
 
     if (ventaja === 1) {
@@ -484,7 +544,6 @@ function resolverTurnoCombate(accionJugador) {
         renderUI();
     }, 1800);
 }
-
 // --- 6. EVOLUCIÓN CONDICIONADA ---
 
 function comprobarEvolucion() {
