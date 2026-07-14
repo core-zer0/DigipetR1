@@ -1,0 +1,22 @@
+{
+  "SHEET_CONFIG": {
+    "url": "https://raw.githubusercontent.com/core-zer0/DigipetR1/refs/heads/main/sprites/Spritesheet1.png",
+    "startX": 96,
+    "startY": 44,
+    "w": 16,
+    "h": 16,
+    "sheetW": 300,
+    "sheetH": 605
+  },
+  "ANIMATIONS": {
+    "idle":   { "col": 0,  "frames": 2 },
+    "eat":    { "col": 2,  "frames": 2 },
+    "sleep":  { "col": 4,  "frames": 2 },
+    "refuse": { "col": 6,  "frames": 1 },
+    "happy":  { "col": 7,  "frames": 1 },
+    "angry":  { "col": 8,  "frames": 1 },
+    "hurt":   { "col": 9,  "frames": 1 },
+    "sad":    { "col": 10, "frames": 1 },
+    "attack": { "col": 11, "frames": 1 }
+  }
+}
