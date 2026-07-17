@@ -477,7 +477,7 @@ function resolverTurnoCombate(accionJugador) {
     
     const accionRival = Math.floor(Math.random() * 3);
     const nombresAccion = ['ATQ', 'VEL', 'DEF'];
-    const emotesAccion = ['⚔️', '⚡', '🛡️']; // Emotes para cada tipo de ataque
+    const emotesAccion = ['⚔️', '⚡', '🛡️'];
     const statsJugador = ROSTER[db.stage] || ROSTER['agumon'];
     const statsRival = ROSTER[combatState.enemyId] || ROSTER['agumon'];
     
@@ -488,7 +488,6 @@ function resolverTurnoCombate(accionJugador) {
         } else { ventaja = -1; }
     }
 
-    // Determinamos quién es el atacante activo para lanzar el emote en la dirección correcta
     if (ventaja === 1) {
         combatState.attacker = 'player';
         combatState.actionEmote = emotesAccion[accionJugador];
@@ -499,23 +498,23 @@ function resolverTurnoCombate(accionJugador) {
         let statJ = accionJugador === 0 ? statsJugador.atq : (accionJugador === 1 ? statsJugador.vel : statsJugador.def);
         let statR = accionRival === 0 ? statsRival.atq : (accionRival === 1 ? statsRival.vel : statsRival.def);
         combatState.attacker = statJ >= statR ? 'player' : 'enemy';
-        combatState.actionEmote = emotesAccion[accionJugador]; // Al ser empate ambos usaron el mismo
+        combatState.actionEmote = emotesAccion[accionJugador];
     }
 
+    // Calculamos estadísticas reales usadas en este turno para evaluar la superación
+    let statJ_Usado = accionJugador === 0 ? statsJugador.atq : (accionJugador === 1 ? statsJugador.vel : statsJugador.def);
+    let statR_Usado = accionRival === 0 ? statsRival.atq : (accionRival === 1 ? statsRival.vel : statsRival.def);
+
     if (ventaja === 1) {
-        let multi = accionJugador === 0 ? statsJugador.atq : (accionJugador === 1 ? statsJugador.vel : statsJugador.def);
-        let dano = Math.max(3, Math.floor((multi * 0.8) - (statsRival.def * 0.3) + 2));
+        let dano = Math.max(3, Math.floor((statJ_Usado * 0.8) - (statsRival.def * 0.3) + 2));
         combatState.enemyHp = Math.max(0, combatState.enemyHp - dano);
         combatState.message = `¡${nombresAccion[accionJugador]} SUPERA ${nombresAccion[accionRival]}! -${dano} HP RIVAL`;
     } else if (ventaja === -1) {
-        let multi = accionRival === 0 ? statsRival.atq : (accionRival === 1 ? statsRival.vel : statsRival.def);
-        let dano = Math.max(2, Math.floor((multi * 0.8) - (statsJugador.def * 0.3) + 2));
+        let dano = Math.max(2, Math.floor((statR_Usado * 0.8) - (statsJugador.def * 0.3) + 2));
         combatState.playerHp = Math.max(0, combatState.playerHp - dano);
         combatState.message = `¡${nombresAccion[accionRival]} SUPERA ${nombresAccion[accionJugador]}! -${dano} HP TÚ`;
     } else {
-        let statJ = accionJugador === 0 ? statsJugador.atq : (accionJugador === 1 ? statsJugador.vel : statsJugador.def);
-        let statR = accionRival === 0 ? statsRival.atq : (accionRival === 1 ? statsRival.vel : statsRival.def);
-        if (statJ >= statR) {
+        if (statJ_Usado >= statR_Usado) {
             combatState.enemyHp = Math.max(0, combatState.enemyHp - 2);
             combatState.message = `¡CHOQUE! Tu fuerza domina: -2 HP RIVAL`;
         } else {
@@ -524,26 +523,63 @@ function resolverTurnoCombate(accionJugador) {
         }
     }
     
+    // ==========================================
+    // --- MOTOR DE EVOLUCIÓN POR CATARSIS ---
+    // ==========================================
+    let etapaPrevia = db.stage;
+    
+    // 1. Evaluamos condiciones dramáticas del anime:
+    const enPeligroCritico = combatState.playerHp > 0 && combatState.playerHp <= (combatState.playerMaxHp * 0.3);
+    const superacionEstatistica = ventaja === 1 && (statR_Usado > statJ_Usado);
+    const choqueGanado = ventaja === 0 && (statJ_Usado >= statR_Usado);
+    
+    // 2. Filtro de salud básica (no evolucionará si está enfermo o agotado al límite)
+    const enBuenEstado = !db.isSick && db.energy >= 1 && db.hunger < 4;
+    
+    // 3. Trigger: Si hay drama y está sano, 25% de probabilidad de canalizar los datos y evolucionar
+    if (enBuenEstado && (enPeligroCritico || superacionEstatistica || choqueGanado)) {
+        if (Math.random() < 0.25) {
+            comprobarEvolucion(); // Comprobamos si cumple los trainings/cuidados necesarios
+        }
+    }
+    
+    if (db.stage !== etapaPrevia) {
+        let nombreNuevo = (ROSTER[db.stage]?.nombre || db.stage).toUpperCase();
+        combatState.message = `¡EL PELIGRO DESATÓ SU FUERZA! ¡EVOLUCIONA A ${nombreNuevo}!`;
+        // Curación de catarsis: recuperar un poco de vida y energía al evolucionar
+        combatState.playerHp = Math.min(combatState.playerMaxHp, combatState.playerHp + 6);
+        db.energy = Math.min(4, db.energy + 1);
+    }
+    // ==========================================
+
     db.lastStageCheck = '';
-    renderUI();
+    renderUI(); 
 
     setTimeout(() => {
         if (combatState.enemyHp <= 0) {
             combatState.subPhase = 'END';
-            combatState.message = `¡VICTORIA! +8C y +1 LVL [PTT: Salir]`;
-            db.coins += 8; db.level++;
+            db.coins += 8; 
+            db.level++;
+            // Si ya evolucionó en el turno, no machacamos el mensaje épico al instante
+            if (db.stage === etapaPrevia) {
+                combatState.message = `¡VICTORIA! +8C y +1 LVL [PTT: Salir]`;
+            }
         } else if (combatState.playerHp <= 0) {
             combatState.subPhase = 'END';
             combatState.message = `¡DERROTA! Pierdes energía [PTT: Salir]`;
-            db.energy = Math.max(0, db.energy - 1); db.careMistakes++;
+            db.energy = Math.max(0, db.energy - 1); 
+            db.careMistakes++;
         } else {
             combatState.subPhase = 'SELECT';
-            combatState.message = `¿QUÉ HARÁS AHORA?`;
+            if (db.stage === etapaPrevia) {
+                combatState.message = `¿QUÉ HARÁS AHORA?`;
+            }
         }
         db.lastStageCheck = '';
         renderUI();
     }, 1800);
 }
+
 // --- 6. EVOLUCIÓN CONDICIONADA ---
 
 function comprobarEvolucion() {
@@ -588,6 +624,40 @@ function comprobarEvolucion() {
     }
     else if (db.stage === 'wargreymon' || db.stage === 'metalgarurumon') {
         if (db.trainings >= 25 && db.careMistakes === 0) db.stage = 'omegamon';
+    }
+}
+
+function comprobarInvolucion() {
+    // 1. Etapas estables que NUNCA involucionan (Bebés y Rookies)
+    const etapasEstables = ['yukimibotamon', 'nyaromon', 'agumon', 'gabumon', 'gammamon'];
+    if (etapasEstables.includes(db.stage)) return;
+
+    // 2. Condición de pérdida de energía/datos (Descuidar al Digimon)
+    if (db.careMistakes >= 3 || db.isSick || db.hunger >= 4) {
+        let etapaAnterior = db.stage;
+        
+        // --- NIVEL MEGA / ULTRA -> ULTIMATE ---
+        if (db.stage === 'omegamon') db.stage = 'wargreymon';
+        else if (db.stage === 'wargreymon') db.stage = 'metalgreymon';
+        else if (db.stage === 'metalgarurumon') db.stage = 'weregarurumon';
+        else if (db.stage === 'arcturusmon') db.stage = 'regulusmon';
+        
+        // --- NIVEL ULTIMATE -> CHAMPION ---
+        else if (db.stage === 'metalgreymon' || db.stage === 'asuramon') db.stage = 'greymon';
+        else if (db.stage === 'weregarurumon' || db.stage === 'metalmamemon') db.stage = 'garurumon';
+        else if (db.stage === 'regulusmon') db.stage = 'gulusgammamon';
+        
+        // --- NIVEL CHAMPION -> ROOKIE ---
+        else if (db.stage === 'greymon' || db.stage === 'leomon' || db.stage === 'igamon') db.stage = 'agumon';
+        else if (db.stage === 'garurumon' || db.stage === 'tailmon') db.stage = 'gabumon';
+        else if (db.stage === 'betelgammamon' || db.stage === 'kausgammamon' || db.stage === 'wezengammamon' || db.stage === 'gulusgammamon') db.stage = 'gammamon';
+
+        // 3. Si se ha producido la involución, perdonamos parte de los errores
+        // para que no siga cayendo hasta Rookie en los siguientes 2 minutos si el jugador vuelve al juego.
+        if (db.stage !== etapaAnterior) {
+            db.careMistakes = 1;
+            // Opcional: Si tienes un sistema de alertas en pantalla principal, puedes mandar un mensaje aquí
+        }
     }
 }
 
@@ -678,8 +748,8 @@ function gameLoop(timestamp) {
                 db.hunger = Math.min(4, db.hunger + 1);
                 if (db.hunger === 4) db.careMistakes++;
                 if (db.poop >= 3) db.isSick = true;
-                comprobarEvolucion();
             }
+            comprobarInvolucion();
             guardarJuego();
             renderUI();
         }
