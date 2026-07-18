@@ -77,7 +77,7 @@
             height: 100%;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
             background-size: 100% 4px;
-            pointer-events: none; /* Crucial: permite tocar el teclado de debajo */
+            pointer-events: none;
             z-index: 10;
         }
 
@@ -89,6 +89,7 @@
             border-bottom: 1px dashed #888;
             padding-bottom: 4px;
             height: 25px;
+            z-index: 5;
         }
 
         .view-port {
@@ -99,6 +100,8 @@
             align-items: center;
             text-align: center;
             font-weight: bold;
+            position: relative;
+            overflow: hidden;
             animation: fadeIn 0.3s ease-out;
         }
 
@@ -127,12 +130,30 @@
             to { background-position: calc((var(--start-x) + (var(--frames) * (var(--w) + 1))) * -1px) calc(var(--start-y) * -1px); }
         }
 
+        /* --- ANIMACIONES DE SISTEMA --- */
+        @keyframes egg-shake {
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            25% { transform: translateX(-3px) rotate(-6deg); }
+            75% { transform: translateX(3px) rotate(6deg); }
+        }
+
+        @keyframes float-skull {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .dead-sprite-wrapper .sprite-grid-render {
+            animation: none !important;
+            filter: grayscale(1) opacity(0.6);
+        }
+
         .action-menu {
             display: flex;
             justify-content: space-between;
             border-top: 1px dashed #888;
             padding-top: 6px;
             height: 35px;
+            z-index: 5;
         }
 
         .menu-icon {
@@ -171,7 +192,7 @@
             <div class="status-bar" id="status-bar">🥚 🔋 ✨</div>
             <div class="view-port" id="view-port"></div>
             <div class="action-menu" id="action-menu">
-                <span class="menu-icon" id="icon-0">🍖</span>
+                <span class="menu-icon" id="icon-0">🎒</span>
                 <span class="menu-icon" id="icon-1">⚔️</span>
                 <span class="menu-icon" id="icon-2">🛒</span>
                 <span class="menu-icon" id="icon-3">💬</span>

@@ -53,6 +53,30 @@ const fsm = new FiniteStateMachine();
 
 // --- 1. CONFIGURACIÓN GLOBALES Y ALMACENAMIENTO ---
 
+const ITEM_CATALOG = {
+    carne: { nombre: 'Carne', emote: '🍖', tipo: 'comida', hambre: 2 },
+    carne_xl: { nombre: 'Carne XL', emote: '🥩', tipo: 'comida', hambre: 4 },
+    pienso: { nombre: 'Pienso', emote: '🧆', tipo: 'comida', hambre: 1 },
+    medicina: { nombre: 'Medicina', emote: '💊', tipo: 'cura' },
+    agua: { nombre: 'Agua', emote: '💧', tipo: 'bebida', energia: 1 },
+    café: { nombre: 'Café', emote: '☕', tipo: 'bebida', energia: 3 },
+    leche: { nombre: 'Leche', emote: '🥛', tipo: 'bebida', hambre: 1, energia: 1 },
+    patata: { nombre: 'Patata', emote: '🥔', tipo: 'comida', hambre: 1 },
+    calabaza: { nombre: 'Calabaza', emote: '🎃', tipo: 'comida', hambre: 2 },
+    cebolla: { nombre: 'Cebolla', emote: '🧅', tipo: 'comida', hambre: 1 },
+    arroz: { nombre: 'Arroz', emote: '🍚', tipo: 'comida', hambre: 2 },
+    lechuga: { nombre: 'Lechuga', emote: '🥬', tipo: 'comida', hambre: 1 },
+    pescado: { nombre: 'Pescado', emote: '🐟', tipo: 'comida', hambre: 3 },
+    trigo: { nombre: 'Trigo', emote: '🌾', tipo: 'materia' },
+    harina: { nombre: 'Harina', emote: '🥡', tipo: 'materia' },
+    semilla_patata: { nombre: 'Sem. Patata', emote: '🌱', tipo: 'semilla' },
+    semilla_calabaza: { nombre: 'Sem. Calabaza', emote: '🌱', tipo: 'semilla' },
+    semilla_cebolla: { nombre: 'Sem. Cebolla', emote: '🌱', tipo: 'semilla' },
+    semilla_arroz: { nombre: 'Sem. Arroz', emote: '🌱', tipo: 'semilla' },
+    semilla_trigo: { nombre: 'Sem. Trigo', emote: '🌱', tipo: 'semilla' },
+    semilla_lechuga: { nombre: 'Sem. Lechuga', emote: '🌱', tipo: 'semilla' }
+};
+
 let ROSTER = {};
 let SHEET_CONFIG = {};
 let ANIMATIONS = {};
@@ -60,8 +84,20 @@ let ANIMATIONS = {};
 let db = JSON.parse(localStorage.getItem('r1_digipet_save')) || {
     phase: 'HATCHING', stage: 'yukimibotamon', hunger: 0, energy: 4, poop: 0,
     isSick: false, coins: 10, level: 1, careMistakes: 0, trainings: 0, lastStageCheck: '',
-    lastAiResponse: ''
+    lastAiResponse: '',
+    inventory: {}
 };
+
+const DEFAULT_INVENTORY = {
+    carne: 3, carne_xl: 1, pienso: 2, medicina: 1, agua: 5, café: 1, leche: 1,
+    patata: 0, calabaza: 0, cebolla: 0, arroz: 0, lechuga: 0, pescado: 1,
+    trigo: 0, harina: 0,
+    semilla_patata: 2, semilla_calabaza: 1, semilla_cebolla: 1, semilla_arroz: 1, semilla_trigo: 2, semilla_lechuga: 1
+};
+
+if (!db.inventory || Object.keys(db.inventory).length === 0) {
+    db.inventory = { ...DEFAULT_INVENTORY };
+}
 
 db.lastStageCheck = '';
 
@@ -72,10 +108,15 @@ let subMenuIndex = 0;
 let spritePosX = 50;
 let spriteDireccion = -1;
 
+// Variables de estado del paseo
+let walkLog = "Explorando...";
+let walkTimer = null;
+let walkInterval = null;
+
 let combatState = {
     enemyId: 'agumon', playerHp: 10, playerMaxHp: 10,
     enemyHp: 10, enemyMaxHp: 10, subPhase: 'SELECT',
-    message: '¡ENEMIGO SALVAJE!', playerAction: 0
+    message: '¡ENEMIGO SALVAJE!', playerAction: 0, isWalk: false
 };
 
 function guardarJuego() {
@@ -92,8 +133,6 @@ function getAnimatedSprite(id, state = 'idle', forceFlip = null) {
         ? `animation: play-anim 0.8s steps(${animConfig.frames}) infinite;` : ``;
 
     let flipX = forceFlip !== null ? forceFlip : (spriteDireccion === 1 ? -1 : 1);
-    
-    // Escala 5 en combate para que sprites altos no superen los 100px de la caja
     let scaleFactor = fsm.state === 'COMBAT' ? 8 : 10;
     let transformValue = `scale(${scaleFactor}) scaleX(${flipX})`;
 
@@ -114,7 +153,6 @@ function getAnimatedSprite(id, state = 'idle', forceFlip = null) {
     let wrapperHeight = fsm.state === 'COMBAT' ? '100%' : '150px';
     let wrapperAlign = fsm.state === 'COMBAT' ? 'flex-end' : 'center';
 
-    // Fíjate cómo ahora sí usamos ${wrapperAlign}, ${wrapperHeight} y ${transformOrigin}
     return `<div style="display: flex; justify-content: center; align-items: ${wrapperAlign}; height: ${wrapperHeight}; width: 100%; position: relative;">
             <div class="sprite-grid-render" style="
                 --sheet-url: url('${SHEET_CONFIG.url}'); 
@@ -140,7 +178,7 @@ function renderUI() {
     view.style.filter = fsm.state === 'SLEEP' ? 'brightness(0.35) contrast(1.2)' : 'none';
 
     let combatKey = fsm.state === 'COMBAT' ? `_${combatState.playerHp}_${combatState.enemyHp}_${combatState.subPhase}_${combatState.message}_${subMenuIndex}` : '';
-    let uiCheckKey = `${fsm.state}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}_${eggTaps}_${isEggWobbling}_${spritePosX}_${spriteDireccion}_${db.lastAiResponse}${combatKey}`;
+    let uiCheckKey = `${fsm.state}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}_${eggTaps}_${isEggWobbling}_${spritePosX}_${spriteDireccion}_${db.lastAiResponse}_${walkLog}${combatKey}`;
    
     if (db.lastStageCheck === uiCheckKey) {
         actualizarFilaIconos();
@@ -154,16 +192,31 @@ function renderUI() {
     else if (db.poop > 0) animState = 'refuse';
 
     switch(fsm.state) {
+        case 'INVENTORY':
+            let invKeys = Object.keys(db.inventory || {}).filter(k => db.inventory[k] > 0);
+            invKeys.push('VOLVER');
+            
+            let startIdx = Math.max(0, Math.min(subMenuIndex - 1, invKeys.length - 3));
+            let visibleList = invKeys.slice(startIdx, startIdx + 3).map((key, idx) => {
+                let actualIdx = startIdx + idx;
+                let isSelected = actualIdx === subMenuIndex;
+                if (key === 'VOLVER') {
+                    return `${isSelected ? '👉' : '    '} VOLVER`;
+                }
+                let item = ITEM_CATALOG[key] || { nombre: key, emote: '📦' };
+                return `${isSelected ? '👉' : '    '} ${item.emote} ${item.nombre} x${db.inventory[key]}`;
+            }).join('<br>');
+
+            view.innerHTML = `
+                <div class="menu-title">🎒 INVENTARIO 🎒</div>
+                <div class="menu-list" style="text-align:left; width:90%; margin-top:8px; font-size:10px; line-height:16px;">
+                    ${visibleList || 'Mochila vacía<br>👉 VOLVER'}
+                </div>`;
+            break;
+
         case 'HATCHING':
             let wobbleAnimation = isEggWobbling ? 'animation: egg-shake 0.2s ease-in-out;' : '';
             view.innerHTML = `
-                <style>
-                    @keyframes egg-shake {
-                        0%, 100% { transform: translateX(0) rotate(0deg); }
-                        25% { transform: translateX(-3px) rotate(-6deg); }
-                        75% { transform: translateX(3px) rotate(6deg); }
-                    }
-                </style>
                 <div class="menu-title">ELIGE TU HUEVO</div>
                 <div style="display:inline-block; ${wobbleAnimation}">${getAnimatedSprite('yukimibotamon', 'idle')}</div>
                 <div class="menu-list" style="font-size:11px; margin-top:4px; line-height: 14px;">
@@ -180,9 +233,15 @@ function renderUI() {
 
         case 'DEAD':
             view.innerHTML = `
-                <div class="menu-title">CONEXIÓN PERDIDA</div>
-                ${getAnimatedSprite('yukimibotamon', 'hurt')}
-                <div class="menu-list" style="font-size:11px; margin-top:4px;">[PTT para Reiniciar]</div>`;
+                <div class="menu-title" style="color: #d32f2f;">💀 FIN DE LA PARTIDA 💀</div>
+                <div style="position: relative; width: 100%; height: 110px; display: flex; justify-content: center; align-items: center;">
+                    <div style="position: absolute; top: 10px; font-size: 24px; animation: float-skull 2s infinite ease-in-out; z-index: 10;">💀</div>
+                    <div class="dead-sprite-wrapper" style="width: 100%; height: 100%;">
+                        ${getAnimatedSprite(db.stage, 'sleep')}
+                    </div>
+                </div>
+                <div class="menu-list" style="font-size:10px; margin-top:2px; color:#555;">[Savegame Borrado]</div>
+                <div class="menu-list" style="font-size:11px; margin-top:2px; font-weight:bold;">[PTT para Reiniciar]</div>`;
             break;
 
         case 'MAIN':
@@ -195,11 +254,31 @@ function renderUI() {
         case 'EXPEDITION':
             view.innerHTML = `
                 <div class="menu-title">⚔️ EXPEDICIÓN ⚔️</div>
-                <div class="menu-list" style="text-align:left; width:85%; margin-top:10px;">
+                <div class="menu-list" style="text-align:left; width:85%; margin-top:6px; font-size:10px;">
                     ${subMenuIndex === 0 ? '👉 BUSCAR COMBATE' : '    BUSCAR COMBATE'}<br>
                     ${subMenuIndex === 1 ? '👉 ENTRENAR' : '    ENTRENAR'}<br>
-                    ${subMenuIndex === 2 ? '👉 VOLVER' : '    VOLVER'}
+                    ${subMenuIndex === 2 ? '👉 PASEAR' : '    PASEAR'}<br>
+                    ${subMenuIndex === 3 ? '👉 VOLVER' : '    VOLVER'}
                 </div>`;
+            break;
+            
+        case 'WALK':
+            view.innerHTML = `
+                <style>
+                    .walk-bounce { animation: walk-bounce 0.4s infinite alternate ease-in-out; }
+                    @keyframes walk-bounce { 0% { transform: translateY(0); } 100% { transform: translateY(-8px); } }
+                    .grass-layer { position: absolute; bottom: 0; left: 0; width: 200%; height: 35px; background: repeating-linear-gradient(45deg, #2d4c1e, #2d4c1e 10px, #3a5f27 10px, #3a5f27 20px); opacity: 0.8; z-index: 10; border-top: 2px dashed #111; animation: slide-grass 1s linear infinite; }
+                    @keyframes slide-grass { from { transform: translateX(0); } to { transform: translateX(-28px); } }
+                </style>
+                <div class="menu-title">🌳 DE PASEO 🌳</div>
+                <div class="menu-list" style="font-size:9px; height:12px; margin-top:2px; color:#222; font-weight:bold;">${walkLog}</div>
+                <div style="position: relative; width: 100%; height: 90px; display: flex; justify-content: center; align-items: flex-end; overflow: hidden; margin-top: 5px;">
+                    <div class="walk-bounce" style="z-index: 5; margin-bottom: 5px;">
+                        ${getAnimatedSprite(db.stage, 'idle')}
+                    </div>
+                    <div class="grass-layer"></div>
+                </div>
+                <div style="font-size: 0.65rem; color: #333; margin-top: 6px;">[PTT: Volver a casa]</div>`;
             break;
 
         case 'SHOP':
@@ -213,57 +292,41 @@ function renderUI() {
             break;
 
         case 'COMBAT':
-                    let enemyData = ROSTER[combatState.enemyId] || ROSTER['agumon'];
-                    let isAnimating = combatState.subPhase === 'ANIMATING';
-                    
-                    // Si hay animación, el atacante ejecuta 'attack' y el que recibe el golpe ejecuta 'hurt'
-                    let playerAnim = (isAnimating && combatState.attacker === 'player') ? 'attack' : ((isAnimating && combatState.attacker === 'enemy') ? 'hurt' : 'idle');
-                    let enemyAnim = (isAnimating && combatState.attacker === 'enemy') ? 'attack' : ((isAnimating && combatState.attacker === 'player') ? 'hurt' : 'idle');
-                    
-                    // Sistema de animación CSS para disparar el emote entre las dos posiciones
-                    let emoteOverlay = '';
-                    if (isAnimating && combatState.actionEmote) {
-                        let fromLeft = combatState.attacker === 'player';
-                        emoteOverlay = `
-                            <style>
-                                @keyframes shootEmote {
-                                    0% { left: ${fromLeft ? '20%' : '80%'}; top: 35%; opacity: 0; transform: scale(0.5); }
-                                    20% { opacity: 1; transform: scale(1.4); }
-                                    80% { left: ${fromLeft ? '80%' : '20%'}; top: 35%; opacity: 1; transform: scale(1.4); }
-                                    100% { left: ${fromLeft ? '85%' : '15%'}; top: 35%; opacity: 0; transform: scale(2) rotate(${fromLeft ? '25deg' : '-25deg'}); }
-                                }
-                            </style>
-                            <div style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20;">
-                                <div style="position: absolute; font-size: 20px; animation: shootEmote 1.4s ease-in-out forwards;">
-                                    ${combatState.actionEmote}
-                                </div>
-                            </div>`;
-                    }
+            let enemyData = ROSTER[combatState.enemyId] || ROSTER['agumon'];
+            let isAnimating = combatState.subPhase === 'ANIMATING';
+            let playerAnim = (isAnimating && combatState.attacker === 'player') ? 'attack' : ((isAnimating && combatState.attacker === 'enemy') ? 'hurt' : 'idle');
+            let enemyAnim = (isAnimating && combatState.attacker === 'enemy') ? 'attack' : ((isAnimating && combatState.attacker === 'player') ? 'hurt' : 'idle');
 
-                    view.innerHTML = `
-                        <div class="menu-title" style="font-size:10px;">⚔️ VS ${enemyData.nombre.toUpperCase()} ⚔️</div>
-                        <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-end; height: 150px; margin: 2px 0; padding-bottom: 4px; position: relative; width: 100%; overflow: hidden;">
-                            ${emoteOverlay}
-                            <div style="width: 42%; height: 100%; display: flex; justify-content: center; align-items: flex-end;">
-                                ${getAnimatedSprite(db.stage, playerAnim, -1)}
-                            </div>
-                            <div style="font-size: 10px; font-weight: bold; color: #333; width: 16%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 5;">VS</div>
-                            <div style="width: 42%; height: 100%; display: flex; justify-content: center; align-items: flex-end;">
-                                ${getAnimatedSprite(combatState.enemyId, enemyAnim, 1)}
-                            </div>
-                        </div>
-                        <div style="font-size: 9px; background: #111; color: #8b9d77; padding: 2px 4px; border-radius: 2px; margin-bottom: 2px; display: flex; justify-content: space-between;">
-                            <span>TÚ: ${combatState.playerHp}/${combatState.playerMaxHp}</span>
-                            <span>RIVAL: ${combatState.enemyHp}/${combatState.enemyMaxHp}</span>
-                        </div>
-                        <div class="menu-list" style="font-size: 9px; min-height: 14px; margin-bottom: 4px;">${combatState.message}</div>
-                        ${combatState.subPhase === 'SELECT' ? `
-                        <div class="menu-list" style="font-size: 9px; display: flex; justify-content: center; gap: 8px;">
-                            <span style="${subMenuIndex === 0 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 ATQ</span>
-                            <span style="${subMenuIndex === 1 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 VEL</span>
-                            <span style="${subMenuIndex === 2 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 DEF</span>
-                        </div>` : ''}`;
-                    break;
+            view.innerHTML = `
+                <div class="menu-title" style="font-size:10px;">⚔️ VS ${enemyData.nombre.toUpperCase()} ⚔️</div>
+                <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: flex-end; height: 150px; margin: 2px 0; padding-bottom: 4px; position: relative; width: 100%; overflow: hidden;">
+                    <div id="emote-container" style="position: absolute; font-size: 20px; z-index: 20; opacity: 0; pointer-events: none;">
+                        ${isAnimating ? combatState.actionEmote : ''}
+                    </div>
+                    <div style="width: 42%; height: 100%; display: flex; justify-content: center; align-items: flex-end;">
+                        ${getAnimatedSprite(db.stage, playerAnim, -1)}
+                    </div>
+                    <div style="font-size: 10px; font-weight: bold; color: #333; width: 16%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 5;">VS</div>
+                    <div style="width: 42%; height: 100%; display: flex; justify-content: center; align-items: flex-end;">
+                        ${getAnimatedSprite(combatState.enemyId, enemyAnim, 1)}
+                    </div>
+                </div>
+                <div style="font-size: 9px; background: #111; color: #8b9d77; padding: 2px 4px; border-radius: 2px; margin-bottom: 2px; display: flex; justify-content: space-between;">
+                    <span>TÚ: ${combatState.playerHp}/${combatState.playerMaxHp}</span>
+                    <span>RIVAL: ${combatState.enemyHp}/${combatState.enemyMaxHp}</span>
+                </div>
+                <div class="menu-list" style="font-size: 9px; min-height: 14px; margin-bottom: 4px;">${combatState.message}</div>
+                ${combatState.subPhase === 'SELECT' ? `
+                <div class="menu-list" style="font-size: 9px; display: flex; justify-content: center; gap: 8px;">
+                    <span style="${subMenuIndex === 0 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 ATQ</span>
+                    <span style="${subMenuIndex === 1 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 VEL</span>
+                    <span style="${subMenuIndex === 2 ? 'font-weight:bold; text-decoration:underline;' : ''}">👉 DEF</span>
+                </div>` : ''}`;
+
+            if (isAnimating && combatState.actionEmote) {
+                requestAnimationFrame(() => triggerEmoteAnimation());
+            }
+            break;
 
         case 'MENU_EXEC':
             view.innerHTML = `
@@ -319,7 +382,59 @@ function actualizarFilaIconos() {
 
 // --- 3. DEFINICIÓN DE ESTADOS DE LA FSM ---
 
+fsm.register('INVENTORY', {
+    onEnter: () => { subMenuIndex = 0; renderUI(); },
+    onInput: (action) => {
+        let invKeys = Object.keys(db.inventory || {}).filter(k => db.inventory[k] > 0);
+        invKeys.push('VOLVER');
+
+        if (action === 'NEXT') { 
+            subMenuIndex = (subMenuIndex + 1) % invKeys.length; 
+            renderUI(); 
+        }
+        else if (action === 'PREV') { 
+            subMenuIndex = (subMenuIndex - 1 + invKeys.length) % invKeys.length; 
+            renderUI(); 
+        }
+        else if (action === 'EXEC') {
+            let selectedKey = invKeys[subMenuIndex];
+            if (selectedKey === 'VOLVER' || !selectedKey) {
+                fsm.transition('MAIN');
+                return;
+            }
+            
+            let item = ITEM_CATALOG[selectedKey];
+            if (!item || db.inventory[selectedKey] <= 0) return;
+
+            if (item.tipo === 'comida' || item.tipo === 'bebida') {
+                db.inventory[selectedKey]--;
+                if (item.hambre) db.hunger = Math.max(0, db.hunger - item.hambre);
+                if (item.energia) db.energy = Math.min(4, db.energy + item.energia);
+                guardarJuego();
+                fsm.transition('MENU_EXEC', { duration: 1000, next: 'MAIN' });
+            } else if (item.tipo === 'cura') {
+                if (db.isSick) {
+                    db.inventory[selectedKey]--;
+                    db.isSick = false;
+                    guardarJuego();
+                    fsm.transition('MENU_EXEC', { duration: 1000, next: 'MAIN' });
+                } else {
+                    fsm.transition('MAIN');
+                }
+            } else {
+                console.log(`[INVENTARIO]: ${item.nombre} reservado para agricultura o crafteo.`);
+                fsm.transition('MAIN');
+            }
+        }
+    }
+});
+
+
 fsm.register('HATCHING', {
+    onEnter: () => { 
+        db.lastStageCheck = ''; 
+        renderUI(); 
+    },
     onInput: (action) => {
         if (action === 'EXEC') {
             eggTaps++;
@@ -346,13 +461,22 @@ fsm.register('MAIN', {
         else if (action === 'PREV') { currentIconIndex = (currentIconIndex - 1 + 7) % 7; renderUI(); }
         else if (action === 'EXEC') {
             switch(currentIconIndex) {
-                case 0: db.hunger = Math.max(0, db.hunger - 1); fsm.transition('MENU_EXEC', { duration: 1000, next: 'MAIN' }); break;
+                case 0: fsm.transition('INVENTORY'); break; 
                 case 1: fsm.transition('EXPEDITION'); break;
                 case 2: fsm.transition('SHOP'); break;
                 case 3: fsm.transition('KEYBOARD'); break;
                 case 4: fsm.transition('SLEEP'); break;
                 case 5: db.poop = 0; fsm.transition('MENU_EXEC', { duration: 1000, next: 'MAIN' }); break;
-                case 6: db.isSick = false; fsm.transition('MENU_EXEC', { duration: 1000, next: 'MAIN' }); break;
+                case 6: 
+                    if (db.inventory && db.inventory.medicina > 0) {
+                        db.inventory.medicina--;
+                        db.isSick = false;
+                        guardarJuego();
+                        fsm.transition('MENU_EXEC', { duration: 1000, next: 'MAIN' });
+                    } else {
+                        fsm.transition('SHOP');
+                    }
+                    break;
             }
             guardarJuego();
         }
@@ -365,13 +489,27 @@ fsm.register('SLEEP', {
 });
 
 fsm.register('DEAD', {
+    onEnter: () => { 
+        db.lastStageCheck = ''; 
+        renderUI(); 
+    },
     onInput: (action) => {
         if (action === 'EXEC') {
-            db.stage = 'yukimibotamon';
-            db.hunger = 0; db.energy = 4; db.poop = 0; db.isSick = false;
-            db.trainings = 0; db.careMistakes = 0;
-            guardarJuego();
-            fsm.transition('MAIN');
+            db = {
+                phase: 'HATCHING', stage: 'yukimibotamon', hunger: 0, energy: 4, poop: 0,
+                isSick: false, coins: 10, level: 1, careMistakes: 0, trainings: 0, lastStageCheck: '',
+                lastAiResponse: '',
+                 inventory: {
+                    carne: 3, carne_xl: 1, pienso: 2, medicina: 1, agua: 5, café: 1, leche: 1,
+                    patata: 0, calabaza: 0, cebolla: 0, arroz: 0, lechuga: 0, pescado: 1,
+                    trigo: 0, harina: 0,
+                    semilla_patata: 2, semilla_calabaza: 1, semilla_cebolla: 1, semilla_arroz: 1, semilla_trigo: 2, semilla_lechuga: 1
+                }
+            };
+            eggTaps = 0;
+            isEggWobbling = false;
+            guardarJuego(); 
+            fsm.transition('HATCHING');
         }
     }
 });
@@ -379,12 +517,66 @@ fsm.register('DEAD', {
 fsm.register('EXPEDITION', {
     onEnter: () => { subMenuIndex = 0; renderUI(); },
     onInput: (action) => {
-        if (action === 'NEXT') { subMenuIndex = (subMenuIndex + 1) % 3; renderUI(); }
-        else if (action === 'PREV') { subMenuIndex = (subMenuIndex - 1 + 3) % 3; renderUI(); }
+        if (action === 'NEXT') { subMenuIndex = (subMenuIndex + 1) % 4; renderUI(); }
+        else if (action === 'PREV') { subMenuIndex = (subMenuIndex - 1 + 4) % 4; renderUI(); }
         else if (action === 'EXEC') {
             if (subMenuIndex === 0) iniciarBatalla();
             else if (subMenuIndex === 1) iniciarEntrenamiento();
-            else if (subMenuIndex === 2) fsm.transition('MAIN');
+            else if (subMenuIndex === 2) iniciarPaseo();
+            else if (subMenuIndex === 3) fsm.transition('MAIN');
+        }
+    }
+});
+
+// NUEVO ESTADO: PASEO 🌳
+fsm.register('WALK', {
+    onEnter: () => {
+        walkLog = "Caminando por el bosque...";
+        renderUI();
+
+        // Fin automático a los 2 minutos (120,000 ms)
+        walkTimer = setTimeout(() => {
+            walkLog = "¡Paseo terminado! Volviendo...";
+            renderUI();
+            setTimeout(() => fsm.transition('MAIN'), 2000);
+        }, 120000);
+
+        // Ciclo de eventos cada 5 segundos
+        walkInterval = setInterval(() => {
+            let roll = Math.random();
+            // 15% de probabilidad de que ocurra un evento cada 5 segs
+            if (roll < 0.15) {
+                if (Math.random() < 0.7) { // 70% Ítem
+                    const lootTable = ['agua', 'pienso', 'semilla_patata', 'semilla_lechuga', 'semilla_trigo'];
+                    let loot = lootTable[Math.floor(Math.random() * lootTable.length)];
+                    db.inventory[loot] = (db.inventory[loot] || 0) + 1;
+                    let itemData = ITEM_CATALOG[loot];
+                    walkLog = `¡Encontraste ${itemData.emote} ${itemData.nombre}!`;
+                    guardarJuego();
+                    renderUI();
+                } else { // 30% Combate
+                    clearInterval(walkInterval);
+                    clearTimeout(walkTimer);
+                    walkLog = "¡Digimon salvaje a la vista!";
+                    renderUI();
+                    setTimeout(() => iniciarBatallaPaseo(), 1500);
+                }
+            } else {
+                // Mensajes de ambientación
+                const textos = ["Oliendo las flores...", "Buscando en los arbustos...", "Mirando las nubes...", "Disfrutando la brisa...", "Caminando tranquilamente..."];
+                walkLog = textos[Math.floor(Math.random() * textos.length)];
+                renderUI();
+            }
+        }, 5000);
+    },
+    onExit: () => {
+        if (walkTimer) clearTimeout(walkTimer);
+        if (walkInterval) clearInterval(walkInterval);
+    },
+    onInput: (action) => {
+        // Cancelar el paseo en cualquier momento pulsando EXEC (PTT)
+        if (action === 'EXEC') {
+            fsm.transition('MAIN');
         }
     }
 });
@@ -395,8 +587,14 @@ fsm.register('SHOP', {
         if (action === 'NEXT') { subMenuIndex = (subMenuIndex + 1) % 3; renderUI(); }
         else if (action === 'PREV') { subMenuIndex = (subMenuIndex - 1 + 3) % 3; renderUI(); }
         else if (action === 'EXEC') {
-            if (subMenuIndex === 0 && db.coins >= 4) { db.coins -= 4; db.hunger = Math.max(0, db.hunger - 2); }
-            else if (subMenuIndex === 1 && db.coins >= 8) { db.coins -= 8; db.isSick = false; }
+            if (subMenuIndex === 0 && db.coins >= 4) { 
+                db.coins -= 4; 
+                db.inventory.carne_xl = (db.inventory.carne_xl || 0) + 1; 
+            }
+            else if (subMenuIndex === 1 && db.coins >= 8) { 
+                db.coins -= 8; 
+                db.inventory.medicina = (db.inventory.medicina || 0) + 1; 
+            }
             else if (subMenuIndex === 2) { fsm.transition('MAIN'); return; }
             guardarJuego();
             fsm.transition('MAIN');
@@ -455,6 +653,17 @@ function iniciarEntrenamiento() {
     fsm.transition('MENU_EXEC', { duration: 1200, next: 'MAIN' });
 }
 
+function iniciarPaseo() {
+    // Si no tiene energía, no lo dejamos salir
+    if (db.energy === 0) { fsm.transition('MAIN'); return; }
+    
+    // Costes del paseo (el cansancio y hambre de salir al monte)
+    db.energy = Math.max(0, db.energy - 1);
+    db.hunger = Math.min(4, db.hunger + 1);
+    guardarJuego();
+    fsm.transition('WALK');
+}
+
 function iniciarBatalla() {
     if (db.energy === 0) { fsm.transition('MAIN'); return; }
     db.energy = Math.max(0, db.energy - 1);
@@ -466,7 +675,23 @@ function iniciarBatalla() {
     combatState = {
         enemyId: enemigoAleatorio, playerHp: maxHp, playerMaxHp: maxHp,
         enemyHp: maxHp, enemyMaxHp: maxHp, subPhase: 'SELECT',
-        message: '¡ELIGE TU ACCIÓN TÁCTICA!', playerAction: 0
+        message: '¡ELIGE TU ACCIÓN TÁCTICA!', playerAction: 0, isWalk: false
+    };
+    fsm.transition('COMBAT');
+}
+
+// Nueva función de batalla suavizada para los Paseos
+function iniciarBatallaPaseo() {
+    const enemigosBajos = ['yukimibotamon', 'nyaromon', 'agumon', 'gabumon', 'gammamon'];
+    const enemigoAleatorio = enemigosBajos[Math.floor(Math.random() * enemigosBajos.length)];
+
+    let maxHp = 10 + (db.level * 3);
+    let enemyMaxHp = 8 + (db.level * 2); // Enemigos un poco más débiles en paseo
+
+    combatState = {
+        enemyId: enemigoAleatorio, playerHp: maxHp, playerMaxHp: maxHp,
+        enemyHp: enemyMaxHp, enemyMaxHp: enemyMaxHp, subPhase: 'SELECT',
+        message: '¡COMBATE DE PASEO!', playerAction: 0, isWalk: true
     };
     fsm.transition('COMBAT');
 }
@@ -501,7 +726,6 @@ function resolverTurnoCombate(accionJugador) {
         combatState.actionEmote = emotesAccion[accionJugador];
     }
 
-    // Calculamos estadísticas reales usadas en este turno para evaluar la superación
     let statJ_Usado = accionJugador === 0 ? statsJugador.atq : (accionJugador === 1 ? statsJugador.vel : statsJugador.def);
     let statR_Usado = accionRival === 0 ? statsRival.atq : (accionRival === 1 ? statsRival.vel : statsRival.def);
 
@@ -523,34 +747,24 @@ function resolverTurnoCombate(accionJugador) {
         }
     }
     
-    // ==========================================
-    // --- MOTOR DE EVOLUCIÓN POR CATARSIS ---
-    // ==========================================
     let etapaPrevia = db.stage;
-    
-    // 1. Evaluamos condiciones dramáticas del anime:
     const enPeligroCritico = combatState.playerHp > 0 && combatState.playerHp <= (combatState.playerMaxHp * 0.3);
     const superacionEstatistica = ventaja === 1 && (statR_Usado > statJ_Usado);
     const choqueGanado = ventaja === 0 && (statJ_Usado >= statR_Usado);
-    
-    // 2. Filtro de salud básica (no evolucionará si está enfermo o agotado al límite)
     const enBuenEstado = !db.isSick && db.energy >= 1 && db.hunger < 4;
     
-    // 3. Trigger: Si hay drama y está sano, 25% de probabilidad de canalizar los datos y evolucionar
     if (enBuenEstado && (enPeligroCritico || superacionEstatistica || choqueGanado)) {
         if (Math.random() < 0.25) {
-            comprobarEvolucion(); // Comprobamos si cumple los trainings/cuidados necesarios
+            comprobarEvolucion();
         }
     }
     
     if (db.stage !== etapaPrevia) {
         let nombreNuevo = (ROSTER[db.stage]?.nombre || db.stage).toUpperCase();
         combatState.message = `¡EL PELIGRO DESATÓ SU FUERZA! ¡EVOLUCIONA A ${nombreNuevo}!`;
-        // Curación de catarsis: recuperar un poco de vida y energía al evolucionar
         combatState.playerHp = Math.min(combatState.playerMaxHp, combatState.playerHp + 6);
         db.energy = Math.min(4, db.energy + 1);
     }
-    // ==========================================
 
     db.lastStageCheck = '';
     renderUI(); 
@@ -558,17 +772,30 @@ function resolverTurnoCombate(accionJugador) {
     setTimeout(() => {
         if (combatState.enemyHp <= 0) {
             combatState.subPhase = 'END';
-            db.coins += 8; 
-            db.level++;
-            // Si ya evolucionó en el turno, no machacamos el mensaje épico al instante
-            if (db.stage === etapaPrevia) {
-                combatState.message = `¡VICTORIA! +8C y +1 LVL [PTT: Salir]`;
+            // Si venimos del paseo, ganamos carne en lugar de monedas y xp fuerte
+            if (combatState.isWalk) {
+                db.inventory.carne = (db.inventory.carne || 0) + 1;
+                combatState.message = `¡VICTORIA! +1 CARNE [PTT: Salir]`;
+            } else {
+                db.coins += 8; 
+                db.level++;
+                if (db.stage === etapaPrevia) {
+                    combatState.message = `¡VICTORIA! +8C y +1 LVL [PTT: Salir]`;
+                }
             }
         } else if (combatState.playerHp <= 0) {
-            combatState.subPhase = 'END';
-            combatState.message = `¡DERROTA! Pierdes energía [PTT: Salir]`;
-            db.energy = Math.max(0, db.energy - 1); 
-            db.careMistakes++;
+            if (combatState.isWalk) {
+                // Si pierdes en el paseo, te cansas más y huyes de vuelta al menú (Sin muerte permamente)
+                db.energy = Math.max(0, db.energy - 1);
+                combatState.subPhase = 'END';
+                combatState.message = `¡HUÍSTE CANSADO! -1 BATERÍA [PTT]`;
+                guardarJuego();
+                return;
+            } else {
+                // Muerte en combate de Expedición normal
+                ejecutarMuerte("CAYÓ EN BATALLA");
+                return;
+            }
         } else {
             combatState.subPhase = 'SELECT';
             if (db.stage === etapaPrevia) {
@@ -578,6 +805,24 @@ function resolverTurnoCombate(accionJugador) {
         db.lastStageCheck = '';
         renderUI();
     }, 1800);
+}
+
+function triggerEmoteAnimation() {
+    const emote = document.getElementById('emote-container');
+    if (!emote) return;
+
+    const fromLeft = combatState.attacker === 'player';
+    
+    emote.animate([
+        { left: fromLeft ? '20%' : '80%', top: '35%', opacity: 0, transform: 'scale(0.5)' },
+        { opacity: 1, transform: 'scale(1.4)' },
+        { left: fromLeft ? '80%' : '20%', top: '35%', opacity: 1, transform: 'scale(1.4)' },
+        { opacity: 0, transform: 'scale(2)' }
+    ], {
+        duration: 1400,
+        easing: 'ease-in-out',
+        fill: 'forwards'
+    });
 }
 
 // --- 6. EVOLUCIÓN CONDICIONADA ---
@@ -628,40 +873,46 @@ function comprobarEvolucion() {
 }
 
 function comprobarInvolucion() {
-    // 1. Etapas estables que NUNCA involucionan (Bebés y Rookies)
     const etapasEstables = ['yukimibotamon', 'nyaromon', 'agumon', 'gabumon', 'gammamon'];
     if (etapasEstables.includes(db.stage)) return;
 
-    // 2. Condición de pérdida de energía/datos (Descuidar al Digimon)
     if (db.careMistakes >= 3 || db.isSick || db.hunger >= 4) {
         let etapaAnterior = db.stage;
         
-        // --- NIVEL MEGA / ULTRA -> ULTIMATE ---
         if (db.stage === 'omegamon') db.stage = 'wargreymon';
         else if (db.stage === 'wargreymon') db.stage = 'metalgreymon';
         else if (db.stage === 'metalgarurumon') db.stage = 'weregarurumon';
         else if (db.stage === 'arcturusmon') db.stage = 'regulusmon';
-        
-        // --- NIVEL ULTIMATE -> CHAMPION ---
         else if (db.stage === 'metalgreymon' || db.stage === 'asuramon') db.stage = 'greymon';
         else if (db.stage === 'weregarurumon' || db.stage === 'metalmamemon') db.stage = 'garurumon';
         else if (db.stage === 'regulusmon') db.stage = 'gulusgammamon';
-        
-        // --- NIVEL CHAMPION -> ROOKIE ---
         else if (db.stage === 'greymon' || db.stage === 'leomon' || db.stage === 'igamon') db.stage = 'agumon';
         else if (db.stage === 'garurumon' || db.stage === 'tailmon') db.stage = 'gabumon';
         else if (db.stage === 'betelgammamon' || db.stage === 'kausgammamon' || db.stage === 'wezengammamon' || db.stage === 'gulusgammamon') db.stage = 'gammamon';
 
-        // 3. Si se ha producido la involución, perdonamos parte de los errores
-        // para que no siga cayendo hasta Rookie en los siguientes 2 minutos si el jugador vuelve al juego.
         if (db.stage !== etapaAnterior) {
             db.careMistakes = 1;
-            // Opcional: Si tienes un sistema de alertas en pantalla principal, puedes mandar un mensaje aquí
         }
     }
 }
 
-// --- 7. INTELIGENCIA ARTIFICIAL & RABBIT R1 BRIDGE ---
+// --- 7. MOTOR DE PERMADEATH ---
+
+function ejecutarMuerte(motivo = "FALLECIÓ") {
+    console.log(`[PERMADEATH]: El Digimon ha muerto por: ${motivo}`);
+    localStorage.removeItem('r1_digipet_save');
+    fsm.transition('DEAD');
+}
+
+function comprobarMuertePorCuidado() {
+    if ((db.energy === 0 && db.hunger >= 4 && db.isSick) || db.careMistakes >= 5) {
+        ejecutarMuerte("COLAPSO POR NEGLIGENCIA");
+        return true; 
+    }
+    return false;
+}
+
+// --- 8. INTELIGENCIA ARTIFICIAL & RABBIT R1 BRIDGE ---
 
 function llamarModeloRabbit(systemPrompt, mensajeUsuario) {
     return new Promise((resolve, reject) => {
@@ -710,7 +961,7 @@ window.enviarMensajeAI = function(event) {
     }
 };
 
-// --- 8. CICLO DE RENDIMIENTO AVANZADO (requestAnimationFrame) ---
+// --- 9. CICLO DE RENDIMIENTO AVANZADO (requestAnimationFrame) ---
 
 let lastWanderTime = 0;
 let lastVitalTime = 0;
@@ -722,7 +973,6 @@ function gameLoop(timestamp) {
     const wanderDelta = timestamp - lastWanderTime;
     const vitalDelta = timestamp - lastVitalTime;
 
-    // Bucle de Deambuleo (600ms exactos, sin desincronización)
     if (wanderDelta >= 600) {
         lastWanderTime = timestamp - (wanderDelta % 600);
         if (fsm.state === 'MAIN' && !db.isSick && db.hunger < 3 && db.poop === 0) {
@@ -737,7 +987,6 @@ function gameLoop(timestamp) {
         }
     }
 
-    // Bucle Vital (120,000ms - 2 Minutos exactos)
     if (vitalDelta >= 120000) {
         lastVitalTime = timestamp - (vitalDelta % 120000);
         if (fsm.state !== 'HATCHING' && fsm.state !== 'DEAD') {
@@ -750,6 +999,7 @@ function gameLoop(timestamp) {
                 if (db.poop >= 3) db.isSick = true;
             }
             comprobarInvolucion();
+            if (comprobarMuertePorCuidado()) return;
             guardarJuego();
             renderUI();
         }
@@ -759,7 +1009,7 @@ function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
 }
 
-// --- 9. ARRANQUE ASÍNCRONO DEL MOTOR ---
+// --- 10. ARRANQUE ASÍNCRONO DEL MOTOR ---
 
 async function bootGame() {
     try {
@@ -773,9 +1023,8 @@ async function bootGame() {
         ANIMATIONS = animData.ANIMATIONS;
         ROSTER = await rosterRes.json();
 
-        if (!ROSTER[db.stage] || db.stage === 'muerto') {
+        if (db.phase === 'HATCHING') {
             db.stage = 'yukimibotamon';
-            db.phase = 'HATCHING';
         }
 
         fsm.transition(db.phase === 'MENU_EXEC' || db.phase === 'COMMS_THINKING' ? 'MAIN' : db.phase);
