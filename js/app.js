@@ -84,8 +84,7 @@ let ANIMATIONS = {};
 let db = JSON.parse(localStorage.getItem('r1_digipet_save')) || {
     phase: 'HATCHING', stage: 'yukimibotamon', hunger: 0, energy: 4, poop: 0,
     isSick: false, coins: 10, level: 1, careMistakes: 0, trainings: 0, lastStageCheck: '',
-    lastAiResponse: '',
-    inventory: {}
+    lastAiResponse: '', happiness: 0, inventory: {}
 };
 
 const DEFAULT_INVENTORY = {
@@ -98,6 +97,7 @@ const DEFAULT_INVENTORY = {
 if (!db.inventory || Object.keys(db.inventory).length === 0) {
     db.inventory = { ...DEFAULT_INVENTORY };
 }
+if (db.happiness === undefined) db.happiness = 0;
 
 db.lastStageCheck = '';
 
@@ -108,7 +108,6 @@ let subMenuIndex = 0;
 let spritePosX = 50;
 let spriteDireccion = -1;
 
-// Variables de estado del paseo
 let walkLog = "Explorando...";
 let walkTimer = null;
 let walkInterval = null;
@@ -133,7 +132,7 @@ function getAnimatedSprite(id, state = 'idle', forceFlip = null) {
         ? `animation: play-anim 0.8s steps(${animConfig.frames}) infinite;` : ``;
 
     let flipX = forceFlip !== null ? forceFlip : (spriteDireccion === 1 ? -1 : 1);
-    let scaleFactor = fsm.state === 'COMBAT' ? 8 : 10;
+    let scaleFactor = (fsm.state === 'COMBAT' || fsm.state === 'PLAY') ? 8 : 10;
     let transformValue = `scale(${scaleFactor}) scaleX(${flipX})`;
 
     let posicionEstilo = '';
@@ -142,7 +141,7 @@ function getAnimatedSprite(id, state = 'idle', forceFlip = null) {
     if (fsm.state === 'MAIN' && state === 'idle' && forceFlip === null) {
         posicionEstilo = `position: absolute; left: ${spritePosX}%; transform: translate(-50%, -50%) ${transformValue}; top: 55%;`;
         transformOrigin = 'transform-origin: center center;';
-    } else if (fsm.state === 'COMBAT') {
+    } else if (fsm.state === 'COMBAT' || fsm.state === 'PLAY') {
         posicionEstilo = `position: relative; transform: ${transformValue};`;
         transformOrigin = 'transform-origin: bottom center;';
     } else {
@@ -150,11 +149,12 @@ function getAnimatedSprite(id, state = 'idle', forceFlip = null) {
         transformOrigin = 'transform-origin: center center;';
     }
 
-    let wrapperHeight = fsm.state === 'COMBAT' ? '100%' : '150px';
-    let wrapperAlign = fsm.state === 'COMBAT' ? 'flex-end' : 'center';
+    let wrapperHeight = (fsm.state === 'COMBAT' || fsm.state === 'PLAY') ? '100%' : '150px';
+    let wrapperAlign = (fsm.state === 'COMBAT' || fsm.state === 'PLAY') ? 'flex-end' : 'center';
 
+    // AÑADIDA CLASE .digimon-sprite PARA SER DETECTADA POR EL JUEGO DE PELOTA Y CARICIAS
     return `<div style="display: flex; justify-content: center; align-items: ${wrapperAlign}; height: ${wrapperHeight}; width: 100%; position: relative;">
-            <div class="sprite-grid-render" style="
+            <div class="sprite-grid-render digimon-sprite" style="
                 --sheet-url: url('${SHEET_CONFIG.url}'); 
                 --offset-x: ${SHEET_CONFIG.startX}; --offset-y: ${SHEET_CONFIG.startY};
                 --w: ${SHEET_CONFIG.w}; --h: ${SHEET_CONFIG.h}; 
@@ -178,7 +178,7 @@ function renderUI() {
     view.style.filter = fsm.state === 'SLEEP' ? 'brightness(0.35) contrast(1.2)' : 'none';
 
     let combatKey = fsm.state === 'COMBAT' ? `_${combatState.playerHp}_${combatState.enemyHp}_${combatState.subPhase}_${combatState.message}_${subMenuIndex}` : '';
-    let uiCheckKey = `${fsm.state}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}_${eggTaps}_${isEggWobbling}_${spritePosX}_${spriteDireccion}_${db.lastAiResponse}_${walkLog}${combatKey}`;
+    let uiCheckKey = `${fsm.state}_${db.stage}_${subMenuIndex}_${db.poop}_${db.hunger}_${db.isSick}_${eggTaps}_${isEggWobbling}_${spritePosX}_${spriteDireccion}_${db.lastAiResponse}_${walkLog}_${db.happiness}${combatKey}`;
    
     if (db.lastStageCheck === uiCheckKey) {
         actualizarFilaIconos();
@@ -363,13 +363,32 @@ function renderUI() {
                 </div>
                 <div style="font-size: 0.65rem; color: #333; margin-top: 4px;">[Pulsa PTT para salir]</div>`;
             break;
+
+        case 'PLAY':
+            const gameBall = document.getElementById('fetch-ball');
+            if (gameBall) gameBall.style.display = 'block';
+
+            view.innerHTML = `
+                <div class="menu-title">🥎 JUEGO DE PELOTA 🥎</div>
+                <div style="position: relative; width: 100%; height: 130px; overflow: hidden; margin-top: 5px; display: flex; align-items: flex-end; justify-content: center;">
+                    
+                    <div style="position: absolute; bottom: 8px; left: 0; width: 100%; height: 1px; border-top: 1px dashed #444; opacity: 0.6; z-index: 1;"></div>
+                    
+                    <div style="width: 100%; height: 100%; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 8px;">
+                        ${getAnimatedSprite(db.stage, animState)}
+                    </div>
+                </div>
+                <div class="menu-list" style="font-size: 9px; text-align: center; color: #222; font-weight: bold; margin-top: 4px;">
+                    [Presiona BACK o PTT para salir]
+                </div>`;
+            break;
     }
     
     actualizarFilaIconos();
 }
 
 function actualizarFilaIconos() {
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 8; i++) {
         const icon = document.getElementById(`icon-${i}`);
         if (!icon) continue;
         if (fsm.state === 'MAIN' && i === currentIconIndex) {
@@ -429,6 +448,67 @@ fsm.register('INVENTORY', {
     }
 });
 
+fsm.register('PLAY', {
+    onEnter: () => {
+        const ball = document.getElementById('fetch-ball');
+        const hand = document.getElementById('hand-cursor');
+        const lcdScreen = document.querySelector('.lcd-screen');
+        if (ball) {
+            ball.style.display = 'block';
+            // Posicionar la pelota abajo a la derecha de forma adaptativa
+            if (lcdScreen) {
+                ball.style.left = `${lcdScreen.clientWidth - 40}px`;
+                ball.style.top = `${lcdScreen.clientHeight - 65}px`;
+                ball.style.bottom = 'auto';
+                ball.style.right = 'auto';
+            }
+        }
+
+        window.playState = {
+            isPetting: false,
+            isDraggingBall: false,
+            ballX: (lcdScreen ? lcdScreen.clientWidth - 40 : 180),
+            ballY: (lcdScreen ? lcdScreen.clientHeight - 65 : 180),
+            vx: 0,
+            vy: 0,
+            isAirborne: false,
+            lastMouseX: 0,
+            lastMouseY: 0,
+            frictionCounter: 0,
+            digimonOffset: 0,
+            ballCaughtCooldown: false
+        };
+
+        if (typeof activarEventosPlay === 'function') {
+            activarEventosPlay();
+        }
+
+        renderUI();
+    },
+    
+    onExit: () => {
+        const ball = document.getElementById('fetch-ball');
+        const hand = document.getElementById('hand-cursor');
+        if (ball) ball.style.display = 'none';
+        if (hand) hand.style.display = 'none';
+
+        const digimon = document.querySelector('.digimon-sprite');
+        if (digimon) digimon.classList.remove('happy-jump');
+
+        if (typeof desactivarEventosPlay === 'function') {
+            desactivarEventosPlay();
+        }
+        
+        window.playState = null;
+    },
+
+    // CORREGIDO: Cambiado de handleInput a onInput para funcionar con la FSM
+    onInput: (action) => {
+        if (action === 'BACK' || action === 'SELECT' || action === 'EXEC') {
+            fsm.transition('MAIN');
+        }
+    }
+});
 
 fsm.register('HATCHING', {
     onEnter: () => { 
@@ -457,8 +537,8 @@ fsm.register('HATCHING', {
 fsm.register('MAIN', {
     onEnter: () => { db.lastStageCheck = ''; renderUI(); },
     onInput: (action) => {
-        if (action === 'NEXT') { currentIconIndex = (currentIconIndex + 1) % 7; renderUI(); }
-        else if (action === 'PREV') { currentIconIndex = (currentIconIndex - 1 + 7) % 7; renderUI(); }
+        if (action === 'NEXT') { currentIconIndex = (currentIconIndex + 1) % 8; renderUI(); }
+        else if (action === 'PREV') { currentIconIndex = (currentIconIndex - 1 + 8) % 8; renderUI(); }
         else if (action === 'EXEC') {
             switch(currentIconIndex) {
                 case 0: fsm.transition('INVENTORY'); break; 
@@ -477,6 +557,7 @@ fsm.register('MAIN', {
                         fsm.transition('SHOP');
                     }
                     break;
+                case 7: fsm.transition('PLAY'); break;
             }
             guardarJuego();
         }
@@ -498,7 +579,7 @@ fsm.register('DEAD', {
             db = {
                 phase: 'HATCHING', stage: 'yukimibotamon', hunger: 0, energy: 4, poop: 0,
                 isSick: false, coins: 10, level: 1, careMistakes: 0, trainings: 0, lastStageCheck: '',
-                lastAiResponse: '',
+                lastAiResponse: '', happiness: 0,
                  inventory: {
                     carne: 3, carne_xl: 1, pienso: 2, medicina: 1, agua: 5, café: 1, leche: 1,
                     patata: 0, calabaza: 0, cebolla: 0, arroz: 0, lechuga: 0, pescado: 1,
@@ -528,25 +609,21 @@ fsm.register('EXPEDITION', {
     }
 });
 
-// NUEVO ESTADO: PASEO 🌳
 fsm.register('WALK', {
     onEnter: () => {
         walkLog = "Caminando por el bosque...";
         renderUI();
 
-        // Fin automático a los 2 minutos (120,000 ms)
         walkTimer = setTimeout(() => {
             walkLog = "¡Paseo terminado! Volviendo...";
             renderUI();
             setTimeout(() => fsm.transition('MAIN'), 2000);
         }, 120000);
 
-        // Ciclo de eventos cada 5 segundos
         walkInterval = setInterval(() => {
             let roll = Math.random();
-            // 15% de probabilidad de que ocurra un evento cada 5 segs
             if (roll < 0.15) {
-                if (Math.random() < 0.7) { // 70% Ítem
+                if (Math.random() < 0.7) { 
                     const lootTable = ['agua', 'pienso', 'semilla_patata', 'semilla_lechuga', 'semilla_trigo'];
                     let loot = lootTable[Math.floor(Math.random() * lootTable.length)];
                     db.inventory[loot] = (db.inventory[loot] || 0) + 1;
@@ -554,7 +631,7 @@ fsm.register('WALK', {
                     walkLog = `¡Encontraste ${itemData.emote} ${itemData.nombre}!`;
                     guardarJuego();
                     renderUI();
-                } else { // 30% Combate
+                } else { 
                     clearInterval(walkInterval);
                     clearTimeout(walkTimer);
                     walkLog = "¡Digimon salvaje a la vista!";
@@ -562,7 +639,6 @@ fsm.register('WALK', {
                     setTimeout(() => iniciarBatallaPaseo(), 1500);
                 }
             } else {
-                // Mensajes de ambientación
                 const textos = ["Oliendo las flores...", "Buscando en los arbustos...", "Mirando las nubes...", "Disfrutando la brisa...", "Caminando tranquilamente..."];
                 walkLog = textos[Math.floor(Math.random() * textos.length)];
                 renderUI();
@@ -574,7 +650,6 @@ fsm.register('WALK', {
         if (walkInterval) clearInterval(walkInterval);
     },
     onInput: (action) => {
-        // Cancelar el paseo en cualquier momento pulsando EXEC (PTT)
         if (action === 'EXEC') {
             fsm.transition('MAIN');
         }
@@ -643,7 +718,245 @@ window.moveNext = () => fsm.handleInput('NEXT');
 window.movePrev = () => fsm.handleInput('PREV');
 window.ejecutarAccionFisica = () => fsm.handleInput('EXEC');
 
-// --- 5. SISTEMAS DE ENTRENAMIENTO Y COMBATE ---
+// --- 5. SISTEMAS TÁCTILES EN EL ESTADO "PLAY" ---
+
+let _onPointerDownRef = null;
+let _onPointerMoveRef = null;
+let _onPointerUpRef = null;
+
+function activarEventosPlay() {
+    const lcdScreen = document.querySelector('.lcd-screen');
+    const hand = document.getElementById('hand-cursor');
+    const ball = document.getElementById('fetch-ball');
+    
+    if (!lcdScreen || !hand) return;
+
+    hand.style.display = 'none';
+
+    _onPointerDownRef = (e) => {
+        if (fsm.state !== 'PLAY' || !window.playState) return;
+        
+        // Comprobar si el toque es directamente sobre la pelota
+        if (e.target === ball || (ball && ball.contains(e.target))) {
+            e.preventDefault(); 
+            window.playState.isDraggingBall = true;
+            window.playState.isAirborne = false;
+            window.playState.vx = 0;
+            window.playState.vy = 0;
+            
+            const rectLCD = lcdScreen.getBoundingClientRect();
+            window.playState.lastMouseX = e.clientX - rectLCD.left;
+            window.playState.lastMouseY = e.clientY - rectLCD.top;
+            return;
+        }
+
+        window.playState.isPetting = true;
+        hand.style.display = 'block';
+        actualizarPosicionMano(e, lcdScreen, hand);
+    };
+
+    _onPointerMoveRef = (e) => {
+        if (fsm.state !== 'PLAY' || !window.playState) return;
+
+        const rectLCD = lcdScreen.getBoundingClientRect();
+        const currentX = e.clientX - rectLCD.left;
+        const currentY = e.clientY - rectLCD.top;
+
+        // 1. Arrastrando la pelota
+        if (window.playState.isDraggingBall && ball) {
+            window.playState.vx = (currentX - window.playState.lastMouseX) * 0.85;
+            window.playState.vy = (currentY - window.playState.lastMouseY) * 0.85;
+
+            window.playState.ballX = Math.max(10, Math.min(rectLCD.width - 30, currentX - 12));
+            window.playState.ballY = Math.max(10, Math.min(rectLCD.height - 30, currentY - 12));
+            window.playState.isAirborne = false;
+
+            window.playState.lastMouseX = currentX;
+            window.playState.lastMouseY = currentY;
+
+            ball.style.left = `${window.playState.ballX}px`;
+            ball.style.top = `${window.playState.ballY}px`;
+            return;
+        }
+
+        // 2. Acariciando al Digimon
+        if (window.playState.isPetting && hand) {
+            actualizarPosicionMano(e, lcdScreen, hand);
+            
+            const digimonSprite = document.querySelector('.digimon-sprite');
+            if (digimonSprite) {
+                const rectDigimon = digimonSprite.getBoundingClientRect();
+                if (e.clientX >= rectDigimon.left && e.clientX <= rectDigimon.right &&
+                    e.clientY >= rectDigimon.top && e.clientY <= rectDigimon.bottom) {
+                    
+                    window.playState.frictionCounter++;
+                    hand.style.transform = `rotate(${Math.sin(window.playState.frictionCounter * 0.5) * 18}deg)`;
+
+                    if (window.playState.frictionCounter >= 25) {
+                        window.playState.frictionCounter = 0;
+                        ejecutarEfectoCariciaFeliz(digimonSprite);
+                    }
+                }
+            }
+        }
+    };
+
+    _onPointerUpRef = (e) => {
+        if (fsm.state !== 'PLAY' || !window.playState) return;
+
+        if (window.playState.isDraggingBall) {
+            window.playState.isAirborne = true;
+            window.playState.vx = Math.max(-15, Math.min(15, window.playState.vx));
+            window.playState.vy = Math.max(-15, Math.min(15, window.playState.vy));
+        }
+
+        window.playState.isPetting = false;
+        window.playState.isDraggingBall = false;
+        
+        if (hand) {
+            hand.style.display = 'none';
+            hand.style.transform = 'rotate(0deg)';
+        }
+    };
+
+    // CORREGIDO: Los eventos se escuchan en la pantalla LCD completa y window
+    lcdScreen.addEventListener('pointerdown', _onPointerDownRef, { passive: false });
+    window.addEventListener('pointermove', _onPointerMoveRef, { passive: false });
+    window.addEventListener('pointerup', _onPointerUpRef);
+}
+
+function actualizarPosicionMano(e, lcdScreen, hand) {
+    const rectLCD = lcdScreen.getBoundingClientRect();
+    const xRelativa = e.clientX - rectLCD.left - 12;
+    const yRelativa = e.clientY - rectLCD.top - 12;
+
+    hand.style.left = `${xRelativa}px`;
+    hand.style.top = `${yRelativa}px`;
+}
+
+function ejecutarEfectoCariciaFeliz(digimonSprite) {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.08);
+    } catch(err) { console.log("Audio no soportado aún"); }
+
+    db.happiness = Math.min(4, (db.happiness || 0) + 1);
+    if (typeof guardarJuego === 'function') guardarJuego();
+
+    if (digimonSprite) {
+        digimonSprite.classList.add('happy-jump');
+        setTimeout(() => digimonSprite.classList.remove('happy-jump'), 1200);
+    }
+}
+
+function desactivarEventosPlay() {
+    const lcdScreen = document.querySelector('.lcd-screen');
+    if (lcdScreen && _onPointerDownRef) lcdScreen.removeEventListener('pointerdown', _onPointerDownRef);
+    if (_onPointerMoveRef) window.removeEventListener('pointermove', _onPointerMoveRef);
+    if (_onPointerUpRef) window.removeEventListener('pointerup', _onPointerUpRef);
+}
+
+// --- MOTOR FÍSICO Y DE IA DEL MINIJUEGO ---
+function actualizarFisicasMinijuego() {
+    if (fsm.state !== 'PLAY' || !window.playState || window.playState.isDraggingBall) return;
+
+    const ball = document.getElementById('fetch-ball');
+    const digimonSprite = document.querySelector('.digimon-sprite');
+    const lcdScreen = document.querySelector('.lcd-screen');
+    if (!ball || !lcdScreen) return;
+
+    // Colisiones dinámicas según el tamaño real en píxeles del LCD
+    const lcdWidth = lcdScreen.clientWidth || 300;
+    const lcdHeight = lcdScreen.clientHeight || 300;
+    
+    const gravedad = 0.45;
+    const friccionSuelo = 0.94;
+    const rebote = -0.65;
+    const sueloY = lcdHeight - 55; // Suelo justo sobre el margen inferior
+    const limiteDerecho = lcdWidth - 30;
+    const limiteIzquierdo = 10;
+
+    // 1. FÍSICAS DE LA PELOTA
+    if (window.playState.isAirborne || Math.abs(window.playState.vx) > 0.1 || window.playState.ballY < sueloY) {
+        
+        window.playState.vy += gravedad;
+        window.playState.ballX += window.playState.vx;
+        window.playState.ballY += window.playState.vy;
+
+        if (window.playState.ballY >= sueloY) {
+            window.playState.ballY = sueloY;
+            window.playState.vy *= rebote;
+            window.playState.vx *= friccionSuelo;
+
+            if (Math.abs(window.playState.vy) < 1) {
+                window.playState.vy = 0;
+                window.playState.isAirborne = false;
+            }
+        }
+
+        if (window.playState.ballX >= limiteDerecho) {
+            window.playState.ballX = limiteDerecho;
+            window.playState.vx *= rebote;
+        } else if (window.playState.ballX <= limiteIzquierdo) {
+            window.playState.ballX = limiteIzquierdo;
+            window.playState.vx *= rebote;
+        }
+
+        ball.style.left = `${window.playState.ballX}px`;
+        ball.style.top = `${window.playState.ballY}px`;
+    }
+
+    // 2. IA DEL DIGIMON (Solo persigue cuando la pelota está cerca o en el suelo)
+    if (digimonSprite && window.playState.ballY >= sueloY - 30) {
+        const rectDigimon = digimonSprite.getBoundingClientRect();
+        const rectLCD = lcdScreen.getBoundingClientRect();
+        
+        // Calculamos el centro horizontal real en píxeles
+        const digimonCenterX = rectDigimon.left + (rectDigimon.width / 2) - rectLCD.left;
+        const distancia = window.playState.ballX - digimonCenterX;
+        const scaleFactor = 8; // Preservamos la escala normal de PLAY
+
+        if (Math.abs(distancia) > 20) {
+            const velocidadPaso = 2;
+            if (distancia > 0) {
+                window.playState.digimonOffset += velocidadPaso;
+                digimonSprite.style.transform = `scale(${scaleFactor}) scaleX(-1)`;
+            } else {
+                window.playState.digimonOffset -= velocidadPaso;
+                digimonSprite.style.transform = `scale(${scaleFactor}) scaleX(1)`;
+            }
+            digimonSprite.style.left = `${window.playState.digimonOffset}px`;
+            
+        } else if (!window.playState.ballCaughtCooldown && (Math.abs(window.playState.vx) > 0.2 || window.playState.ballY >= sueloY - 5)) {
+            // ¡ATRAPA LA PELOTA!
+            window.playState.ballCaughtCooldown = true;
+            window.playState.vx = 0;
+            window.playState.vy = 0;
+            window.playState.isAirborne = false;
+            
+            ejecutarEfectoCariciaFeliz(digimonSprite);
+            
+            // Relanza la pelota al lado opuesto tras 1.2 segundos
+            setTimeout(() => {
+                if (window.playState && fsm.state === 'PLAY' && !window.playState.isDraggingBall) {
+                    window.playState.vy = -7;
+                    window.playState.vx = (window.playState.ballX > lcdWidth / 2) ? -6 : 6;
+                    window.playState.isAirborne = true;
+                    setTimeout(() => { if (window.playState) window.playState.ballCaughtCooldown = false; }, 500);
+                } else if (window.playState) {
+                    window.playState.ballCaughtCooldown = false;
+                }
+            }, 1200);
+        }
+    }
+}
+
+// --- 6. SISTEMAS DE ENTRENAMIENTO Y COMBATE ---
 
 function iniciarEntrenamiento() {
     db.trainings++;
@@ -654,10 +967,7 @@ function iniciarEntrenamiento() {
 }
 
 function iniciarPaseo() {
-    // Si no tiene energía, no lo dejamos salir
     if (db.energy === 0) { fsm.transition('MAIN'); return; }
-    
-    // Costes del paseo (el cansancio y hambre de salir al monte)
     db.energy = Math.max(0, db.energy - 1);
     db.hunger = Math.min(4, db.hunger + 1);
     guardarJuego();
@@ -680,13 +990,12 @@ function iniciarBatalla() {
     fsm.transition('COMBAT');
 }
 
-// Nueva función de batalla suavizada para los Paseos
 function iniciarBatallaPaseo() {
     const enemigosBajos = ['yukimibotamon', 'nyaromon', 'agumon', 'gabumon', 'gammamon'];
     const enemigoAleatorio = enemigosBajos[Math.floor(Math.random() * enemigosBajos.length)];
 
     let maxHp = 10 + (db.level * 3);
-    let enemyMaxHp = 8 + (db.level * 2); // Enemigos un poco más débiles en paseo
+    let enemyMaxHp = 8 + (db.level * 2);
 
     combatState = {
         enemyId: enemigoAleatorio, playerHp: maxHp, playerMaxHp: maxHp,
@@ -772,7 +1081,6 @@ function resolverTurnoCombate(accionJugador) {
     setTimeout(() => {
         if (combatState.enemyHp <= 0) {
             combatState.subPhase = 'END';
-            // Si venimos del paseo, ganamos carne en lugar de monedas y xp fuerte
             if (combatState.isWalk) {
                 db.inventory.carne = (db.inventory.carne || 0) + 1;
                 combatState.message = `¡VICTORIA! +1 CARNE [PTT: Salir]`;
@@ -785,14 +1093,12 @@ function resolverTurnoCombate(accionJugador) {
             }
         } else if (combatState.playerHp <= 0) {
             if (combatState.isWalk) {
-                // Si pierdes en el paseo, te cansas más y huyes de vuelta al menú (Sin muerte permamente)
                 db.energy = Math.max(0, db.energy - 1);
                 combatState.subPhase = 'END';
                 combatState.message = `¡HUÍSTE CANSADO! -1 BATERÍA [PTT]`;
                 guardarJuego();
                 return;
             } else {
-                // Muerte en combate de Expedición normal
                 ejecutarMuerte("CAYÓ EN BATALLA");
                 return;
             }
@@ -825,7 +1131,7 @@ function triggerEmoteAnimation() {
     });
 }
 
-// --- 6. EVOLUCIÓN CONDICIONADA ---
+// --- 7. EVOLUCIÓN CONDICIONADA ---
 
 function comprobarEvolucion() {
     if (db.stage === 'yukimibotamon') db.stage = 'nyaromon';
@@ -896,7 +1202,7 @@ function comprobarInvolucion() {
     }
 }
 
-// --- 7. MOTOR DE PERMADEATH ---
+// --- 8. MOTOR DE PERMADEATH ---
 
 function ejecutarMuerte(motivo = "FALLECIÓ") {
     console.log(`[PERMADEATH]: El Digimon ha muerto por: ${motivo}`);
@@ -912,7 +1218,7 @@ function comprobarMuertePorCuidado() {
     return false;
 }
 
-// --- 8. INTELIGENCIA ARTIFICIAL & RABBIT R1 BRIDGE ---
+// --- 9. INTELIGENCIA ARTIFICIAL & RABBIT R1 BRIDGE ---
 
 function llamarModeloRabbit(systemPrompt, mensajeUsuario) {
     return new Promise((resolve, reject) => {
@@ -961,12 +1267,15 @@ window.enviarMensajeAI = function(event) {
     }
 };
 
-// --- 9. CICLO DE RENDIMIENTO AVANZADO (requestAnimationFrame) ---
+// --- 10. CICLO DE RENDIMIENTO AVANZADO (requestAnimationFrame) ---
 
 let lastWanderTime = 0;
 let lastVitalTime = 0;
 
 function gameLoop(timestamp) {
+
+    actualizarFisicasMinijuego();
+
     if (!lastWanderTime) lastWanderTime = timestamp;
     if (!lastVitalTime) lastVitalTime = timestamp;
 
@@ -1009,7 +1318,7 @@ function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
 }
 
-// --- 10. ARRANQUE ASÍNCRONO DEL MOTOR ---
+// --- 11. ARRANQUE ASÍNCRONO DEL MOTOR ---
 
 async function bootGame() {
     try {

@@ -182,8 +182,43 @@
             font-size: 0.8rem;
             line-height: 1.2;
         }
-        
+        #hand-cursor {
+            position: absolute;
+            font-size: 24px;
+            /* CRÍTICO: pointer-events none asegura que la mano sea "fantasma" 
+               y el navegador detecte lo que hay debajo de ella (la pelota o el digimon) */
+            pointer-events: none; 
+            display: none; /* Oculto hasta que entremos al menú Jugar */
+            z-index: 100;
+            transform-origin: bottom right; /* Para que al rotar parezca que acaricia */
+            transition: transform 0.1s ease-out;
+        }
+
+        #fetch-ball {
+            position: absolute;
+            font-size: 20px;
+            display: none; /* Oculto por defecto */
+            z-index: 90;
+            touch-action: none; /* Evita que el móvil haga scroll al arrastrar la pelota */
+            cursor: pointer;
+            /* Posición inicial por defecto (esquina inferior derecha) */
+            bottom: 40px; 
+            right: 15px;
+            transition: transform 0.1s ease-out;
+        }
+
+        /* Animación para cuando el Digimon recibe caricias */
+        .happy-jump {
+            animation: jump 0.3s ease-in-out infinite alternate;
+        }
+
+        @keyframes jump {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-10px); }
+        }
+
         @keyframes spin { 100% { transform: rotate(360deg); } }
+
     </style>
 </head>
 <body>
@@ -191,6 +226,8 @@
         <div class="lcd-screen">
             <div class="status-bar" id="status-bar">🥚 🔋 ✨</div>
             <div class="view-port" id="view-port"></div>
+            <div id="hand-cursor">🖐️</div>
+            <div id="fetch-ball">🥎</div>
             <div class="action-menu" id="action-menu">
                 <span class="menu-icon" id="icon-0">🎒</span>
                 <span class="menu-icon" id="icon-1">⚔️</span>
@@ -199,6 +236,7 @@
                 <span class="menu-icon" id="icon-4">💤</span>
                 <span class="menu-icon" id="icon-5">🧹</span>
                 <span class="menu-icon" id="icon-6">💊</span>
+                <span class="menu-icon" id="icon-7">🥎</span>
             </div>
         </div>
     </div>
