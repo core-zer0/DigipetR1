@@ -1,0 +1,23 @@
+{
+    "carne": { "nombre": "Carne", "emote": "🍖", "tipo": "comida", "hambre": 2 },
+    "carne_xl": { "nombre": "Carne XL", "emote": "🥩", "tipo": "comida", "hambre": 4 },
+    "pienso": { "nombre": "Pienso", "emote": "🧆", "tipo": "comida", "hambre": 1 },
+    "medicina": { "nombre": "Medicina", "emote": "💊", "tipo": "cura" },
+    "agua": { "nombre": "Agua", "emote": "💧", "tipo": "bebida", "energia": 1 },
+    "café": { "nombre": "Café", "emote": "☕", "tipo": "bebida", "energia": 3 },
+    "leche": { "nombre": "Leche", "emote": "🥛", "tipo": "bebida", "hambre": 1, "energia": 1 },
+    "patata": { "nombre": "Patata", "emote": "🥔", "tipo": "comida", "hambre": 1 },
+    "calabaza": { "nombre": "Calabaza", "emote": "🎃", "tipo": "comida", "hambre": 2 },
+    "cebolla": { "nombre": "Cebolla", "emote": "🧅", "tipo": "comida", "hambre": 1 },
+    "arroz": { "nombre": "Arroz", "emote": "🍚", "tipo": "comida", "hambre": 2 },
+    "lechuga": { "nombre": "Lechuga", "emote": "🥬", "tipo": "comida", "hambre": 1 },
+    "pescado": { "nombre": "Pescado", "emote": "🐟", "tipo": "comida", "hambre": 3 },
+    "trigo": { "nombre": "Trigo", "emote": "🌾", "tipo": "materia" },
+    "harina": { "nombre": "Harina", "emote": "🥡", "tipo": "materia" },
+    "semilla_patata": { "nombre": "Sem. Patata", "emote": "🌱", "tipo": "semilla" },
+    "semilla_calabaza": { "nombre": "Sem. Calabaza", "emote": "🌱", "tipo": "semilla" },
+    "semilla_cebolla": { "nombre": "Sem. Cebolla", "emote": "🌱", "tipo": "semilla" },
+    "semilla_arroz": { "nombre": "Sem. Arroz", "emote": "🌱", "tipo": "semilla" },
+    "semilla_trigo": { "nombre": "Sem. Trigo", "emote": "🌱", "tipo": "semilla" },
+    "semilla_lechuga": { "nombre": "Sem. Lechuga", "emote": "🌱", "tipo": "semilla" }
+}

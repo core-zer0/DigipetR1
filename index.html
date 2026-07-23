@@ -42,17 +42,6 @@
             position: relative;
         }
 
-        .digivice-frame::before {
-            content: '';
-            position: absolute;
-            top: -20px;
-            left: 40px;
-            width: 30px;
-            height: 20px;
-            background: #222;
-            border-radius: 5px 5px 0 0;
-        }
-
         .lcd-screen {
             background-color: #8b9d77;
             border: 6px solid #222;
@@ -81,166 +70,26 @@
             z-index: 10;
         }
 
-        .status-bar {
-            display: flex;
-            justify-content: center;
-            font-size: 1.1rem;
-            letter-spacing: 4px;
-            border-bottom: 1px dashed #888;
-            padding-bottom: 4px;
-            height: 25px;
-            z-index: 5;
-        }
-
         .view-port {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            font-weight: bold;
+            width: 100%;
+            height: 100%;
             position: relative;
             overflow: hidden;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .sprite-grid-render {
-            display: inline-block;
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-            margin: 20px 0;
-            width: calc(var(--w) * 1px);
-            height: calc(var(--h) * 1px);
-            background-image: var(--sheet-url);
-            background-size: var(--sheet-w) var(--sheet-h);
-            background-repeat: no-repeat;
-            --start-x: calc(var(--offset-x) + (var(--col) * (var(--w) + 1)));
-            --start-y: calc(var(--offset-y) + (var(--row) * (var(--h) + 1)));
-            background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px);
-        }
-
-        @keyframes play-anim {
-            from { background-position: calc(var(--start-x) * -1px) calc(var(--start-y) * -1px); }
-            to { background-position: calc((var(--start-x) + (var(--frames) * (var(--w) + 1))) * -1px) calc(var(--start-y) * -1px); }
-        }
-
-        /* --- ANIMACIONES DE SISTEMA --- */
-        @keyframes egg-shake {
-            0%, 100% { transform: translateX(0) rotate(0deg); }
-            25% { transform: translateX(-3px) rotate(-6deg); }
-            75% { transform: translateX(3px) rotate(6deg); }
-        }
-
-        @keyframes float-skull {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-5px); }
-        }
-
-        .dead-sprite-wrapper .sprite-grid-render {
-            animation: none !important;
-            filter: grayscale(1) opacity(0.6);
-        }
-
-        .action-menu {
-            display: flex;
-            justify-content: space-between;
-            border-top: 1px dashed #888;
-            padding-top: 6px;
-            height: 35px;
-            z-index: 5;
-        }
-
-        .menu-icon {
-            font-size: 2.5rem;
-            opacity: 0.25;
-            padding: 2px 4px;
             border-radius: 4px;
-            transition: opacity 0.2s;
         }
-
-        .menu-icon.active {
-            opacity: 1;
-            background-color: rgba(0,0,0,0.08);
-            border: 1px solid #444;
-        }
-
-        .menu-title {
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #222;
-            margin-bottom: 2px;
-        }
-        
-        .menu-list {
-            font-size: 0.8rem;
-            line-height: 1.2;
-        }
-        #hand-cursor {
-            position: absolute;
-            font-size: 24px;
-            /* CRÍTICO: pointer-events none asegura que la mano sea "fantasma" 
-               y el navegador detecte lo que hay debajo de ella (la pelota o el digimon) */
-            pointer-events: none; 
-            display: none; /* Oculto hasta que entremos al menú Jugar */
-            z-index: 100;
-            transform-origin: bottom right; /* Para que al rotar parezca que acaricia */
-            transition: transform 0.1s ease-out;
-        }
-
-        #fetch-ball {
-            position: absolute;
-            font-size: 20px;
-            display: none; /* Oculto por defecto */
-            z-index: 90;
-            touch-action: none; /* Evita que el móvil haga scroll al arrastrar la pelota */
-            cursor: pointer;
-            /* Posición inicial por defecto (esquina inferior derecha) */
-            bottom: 40px; 
-            right: 15px;
-            transition: transform 0.1s ease-out;
-        }
-
-        /* Animación para cuando el Digimon recibe caricias */
-        .happy-jump {
-            animation: jump 0.3s ease-in-out infinite alternate;
-        }
-
-        @keyframes jump {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-10px); }
-        }
-
-        @keyframes spin { 100% { transform: rotate(360deg); } }
 
     </style>
 </head>
 <body>
     <div class="digivice-frame">
         <div class="lcd-screen">
-            <div class="status-bar" id="status-bar">🥚 🔋 ✨</div>
             <div class="view-port" id="view-port"></div>
-            <div id="hand-cursor">🖐️</div>
-            <div id="fetch-ball">🥎</div>
-            <div class="action-menu" id="action-menu">
-                <span class="menu-icon" id="icon-0">🎒</span>
-                <span class="menu-icon" id="icon-1">⚔️</span>
-                <span class="menu-icon" id="icon-2">🛒</span>
-                <span class="menu-icon" id="icon-3">💬</span>
-                <span class="menu-icon" id="icon-4">💤</span>
-                <span class="menu-icon" id="icon-5">🧹</span>
-                <span class="menu-icon" id="icon-6">💊</span>
-                <span class="menu-icon" id="icon-7">🥎</span>
-            </div>
         </div>
     </div>
-    <script src="js/app.js"></script>
+
+    <!-- Scripts en orden de dependencia -->
     <script src="js/hardware.js"></script>
+    <script src="js/creature.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
